@@ -21,6 +21,6 @@ jobs:
         with:
           args: |
             --all \
-            --target onetracker \
-            --image "image-{arch}-homeassistant-addon-onetracker" \
+            --target vinetracker \
+            --image "image-{arch}-homeassistant-addon-vinetracker" \
             --docker-hub decompil3d

@@ -7,7 +7,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apk add --no-cache \
     nodejs \
     npm \
-    git
+    git \
+    sqlite
 
 COPY package.json index.js home.hbs /
 RUN cd / && npm install --unsafe-perm
