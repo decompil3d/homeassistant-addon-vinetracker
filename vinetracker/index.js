@@ -12,12 +12,7 @@ Graceful.on('exit', (signal, details) => {
 const { DatabaseSync } = require('node:sqlite')
 
 const express = require('express');
-const fs = require('fs');
-const handlebars = require('handlebars');
 const path = require('path');
-
-const templateSrc = fs.readFileSync(path.join(__dirname, 'home.hbs'), 'utf8');
-const buildHome = handlebars.compile(templateSrc);
 
 const db = new DatabaseSync(path.join(__dirname, 'vinetracker.db'), {
   open: false,
@@ -32,20 +27,38 @@ app.use((req, res, next) => {
     next();
   }
 });
-app.get('/', async (req, res) => {
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'home.html'));
+});
+app.get('/orders', async (req, res) => {
   try {
     const orders = await getOrders();
-    // TODO: build out template
-    const html = buildHome({
-      orders
-    });
-    res.send(html);
+    res.json({ orders });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: err.message });
     return;
   }
 });
+app.post('/orders/:number/etv', express.json(), async (req, res) => {
+  const number = req.params.number;
+  const { etvFactor } = req.body;
+  if (typeof etvFactor !== 'number' || etvFactor < 0 || etvFactor > 1) {
+    const error = 'Invalid etvFactor. Must be a number between 0 and 1';
+    console.error(error);
+    res.status(400).json({ error });
+    return;
+  }
+  try {
+    setETVFactorForOrder(number, etvFactor);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: err.message });
+    return;
+  }
+});
+
 app.post('/upload', express.text({ type: 'text/csv', limit: '1mb' }), async (req, res) => {
   if (!req.is('text/csv')) {
     const error = 'Invalid content type. Must be text/csv';
@@ -79,6 +92,15 @@ app.post('/upload', express.text({ type: 'text/csv', limit: '1mb' }), async (req
     });
     inserted++;
   }
+
+  // Handle cancellations
+  for (const number of cancellations) {
+    const stmt = db.prepare(`UPDATE orders SET cancelled = 1 WHERE number = ?`);
+    stmt.run(number);
+  }
+
+  console.log(`Upload complete. Inserted: ${inserted}, Failed: ${failed}, Cancellations: ${cancellations.length}`);
+  res.json({ inserted, failed, cancellations: cancellations.length });
 });
 
 console.log('Starting VineTracker addon...');
@@ -97,7 +119,8 @@ app.listen(8099, () => {
     orderedAt TEXT,
     deliveredAt TEXT,
     etv REAL,
-    etvFactor REAL
+    etvFactor REAL,
+    cancelled INTEGER DEFAULT 0
   )`);
 });
 
@@ -110,6 +133,7 @@ app.listen(8099, () => {
  * @prop {Date} [deliveredAt] Date the order was delivered
  * @prop {number} etv Original ETV
  * @prop {number} etvFactor Residual percent of ETV at transfer to personal use
+ * @prop {boolean} [cancelled] Whether the order was cancelled
  */
 
 /**
@@ -126,8 +150,8 @@ function getOrders() {
  * @param {Order} order
  */
 function maybeInsertOrder(order) {
-  const stmt = db.prepare(`INSERT OR IGNORE INTO orders (number, asin, product, orderedAt, deliveredAt, etv, etvFactor)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`);
+  const stmt = db.prepare(`INSERT OR IGNORE INTO orders (number, asin, product, orderedAt, deliveredAt, etv, etvFactor, cancelled)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0)`);
   stmt.run(order.number,
     order.asin,
     order.product,
@@ -159,6 +183,7 @@ function toOrder(row) {
     orderedAt: new Date(row.orderedAt),
     deliveredAt: new Date(row.deliveredAt),
     etv: row.etv,
-    etvFactor: row.etvFactor
+    etvFactor: row.etvFactor,
+    cancelled: row.cancelled === 1,
   };
 }
