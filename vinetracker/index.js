@@ -13,6 +13,8 @@ const { DatabaseSync } = require('node:sqlite')
 
 const express = require('express');
 const path = require('path');
+const fileUpload = require('express-fileupload');
+const { xlsxParse } = require('./xlsx');
 
 const db = new DatabaseSync(path.join(__dirname, 'vinetracker.db'), {
   open: false,
@@ -30,6 +32,9 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'home.html'));
 });
+app.get('/report', (req, res) => {
+  res.sendFile(path.join(__dirname, 'report.html'));
+});
 app.get('/orders', async (req, res) => {
   try {
     const orders = await getOrders();
@@ -40,6 +45,41 @@ app.get('/orders', async (req, res) => {
     return;
   }
 });
+app.get('/report-data/:year', async (req, res) => {
+  const strYear = req.params.year;
+  const year = parseInt(strYear);
+  if (isNaN(year) || year < 2000 || year > 3000) {
+    const error = `Invalid year '${strYear}'`;
+  }
+  const ordersForYear = getOrders().filter(o => o.orderedAt.getFullYear() === year && !o.cancelled);
+  const totalEtv = ordersForYear.reduce((sum, o) => sum + o.etv, 0);
+  const totalAdjustedEtv = ordersForYear.reduce((sum, o) => sum + (o.etvFactor !== null ? o.etv * o.etvFactor : o.etv), 0);
+  
+  res.json({
+    year,
+    totalEtv,
+    totalAdjustedEtv,
+    orderCount: ordersForYear.length,
+    monthly: getMonthlyBreakdown(ordersForYear)
+  });
+});
+
+function getMonthlyBreakdown(orders) {
+  const monthly = [];
+  for (let month = 0; month < 12; month++) {
+    const ordersForMonth = orders.filter(o => o.orderedAt.getMonth() === month);
+    const totalEtv = ordersForMonth.reduce((sum, o) => sum + o.etv, 0);
+    const totalAdjustedEtv = ordersForMonth.reduce((sum, o) => sum + (o.etvFactor !== null ? o.etv * o.etvFactor : o.etv), 0);
+    monthly.push({
+      month: month + 1,
+      orderCount: ordersForMonth.length,
+      totalEtv,
+      totalAdjustedEtv
+    });
+  }
+  return monthly;
+}
+
 app.post('/orders/:number/etv', express.json(), async (req, res) => {
   const number = req.params.number;
   const { etvFactor } = req.body;
@@ -59,25 +99,32 @@ app.post('/orders/:number/etv', express.json(), async (req, res) => {
   }
 });
 
-app.post('/upload', express.text({ type: 'text/csv', limit: '1mb' }), async (req, res) => {
-  if (!req.is('text/csv')) {
-    const error = 'Invalid content type. Must be text/csv';
+app.post('/upload', fileUpload(), async (req, res) => {
+  if (!req.files || !req.files.file) {
+    const error = 'Missing file upload';
     console.error(error);
     res.status(400).json({ error });
     return;
   }
-  const lines = req.body.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+  if (Array.isArray(req.files.file)) {
+    const error = 'Multiple files uploaded. Please upload only one file at a time.';
+    console.error(error);
+    res.status(400).json({ error });
+    return;
+  }
+  if (req.files.file.mimetype !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+    const error = `Invalid file type '${req.files.file.mimetype}'. Please upload an Excel .xlsx file.`;
+    console.error(error);
+    res.status(400).json({ error });
+    return;
+  }
+  const lines = await xlsxParse(req.files.file.data);
   let inserted = 0;
   let failed = 0;
   const cancellations = [];
   for (const line of lines) {
-    const parts = line.split(',');
-    if (parts.length < 5) {
-      console.warn(`Skipping invalid line: ${line}`);
-      failed++;
-      continue;
-    }
-    const [number, asin, product, type, orderedAtStr, deliveredAtStr, /* cancelledDate */, etvStr] = parts;
+    if (!line) return;
+    const { number, asin, product, type, orderedAtStr, deliveredAtStr, etvStr, etvFactor } = line;
     if (type === 'CANCELLATION') {
       cancellations.push(number);
     }
@@ -88,7 +135,7 @@ app.post('/upload', express.text({ type: 'text/csv', limit: '1mb' }), async (req
       orderedAt: new Date(orderedAtStr),
       deliveredAt: deliveredAtStr ? new Date(deliveredAtStr) : undefined,
       etv: parseFloat(etvStr) || 0,
-      etvFactor: 0.2
+      etvFactor: etvFactor ?? null
     });
     inserted++;
   }
@@ -132,7 +179,7 @@ app.listen(8099, () => {
  * @prop {Date} orderedAt Date the order was placed
  * @prop {Date} [deliveredAt] Date the order was delivered
  * @prop {number} etv Original ETV
- * @prop {number} etvFactor Residual percent of ETV at transfer to personal use
+ * @prop {number | null} etvFactor Residual percent of ETV at transfer to personal use
  * @prop {boolean} [cancelled] Whether the order was cancelled
  */
 
@@ -141,7 +188,7 @@ app.listen(8099, () => {
  * @returns {Order[]} List of orders
  */
 function getOrders() {
-  const orders = db.prepare('SELECT * FROM orders').all();
+  const orders = db.prepare('SELECT * FROM orders ORDER BY orderedAt ASC').all();
   return orders.map(toOrder);
 }
 
