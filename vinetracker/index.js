@@ -16,7 +16,8 @@ const path = require('path');
 const fileUpload = require('express-fileupload');
 const { xlsxParse } = require('./xlsx');
 
-const db = new DatabaseSync(path.join(__dirname, 'vinetracker.db'), {
+const dbBasePath = process.env.DB_BASE_PATH || __dirname;
+const db = new DatabaseSync(path.join(dbBasePath, 'vinetracker.db'), {
   open: false,
 });
 const app = express();

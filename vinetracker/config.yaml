@@ -1,7 +1,7 @@
-slug: onetracker
-name: OneTracker
-version: 1.3.4
-url: https://github.com/decompil3d/homeassistant-addon-onetracker
+slug: vinetracker
+name: VineTracker
+version: 1.0.0
+url: https://github.com/decompil3d/homeassistant-addon-vinetracker
 stage: experimental
 description:
   Add a HomeAssistant panel to track Vine order ETVs
@@ -19,3 +19,6 @@ init: false
 panel_title: Vine
 panel_icon: fa-brands:amazon
 panel_admin: false
+map:
+  - type: share
+    read_only: False

@@ -5,8 +5,8 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vine Tracker</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridjs@6.2.0/dist/theme/mermaid.min.css" integrity="sha256-q5WF45g6VyZ6jyL3CP5ArXD4wb1WiOv7ox0RoMfMozE=" crossorigin="anonymous">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/gridjs@6.2.0/dist/gridjs.production.min.js" integrity="sha256-90AvNHcVVoxz8GF4Ht2Ofc7uzdfiUDwooQErfMvBJQk=" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.js" integrity="sha256-uCdT6FLkY6+68Xzm4f9O0usHnJPdKv0Q0rsoXvLchP4=" crossorigin="anonymous"></script>
@@ -20,6 +20,25 @@
     }
     a:hover {
       text-decoration: underline;
+    }
+    .filters {
+      float: right;
+      height: 42px;
+      display: flex;
+      align-items: center;
+    }
+    .btn-force {
+      padding: var(--bs-btn-padding-y) var(--bs-btn-padding-x) !important;
+      border: var(--bs-btn-border-width) solid var(--bs-btn-border-color) !important;
+      background-color: var(--bs-btn-bg) !important;
+    }
+    .btn-force:hover {
+      background-color: var(--bs-btn-hover-bg) !important;
+      border-color: var(--bs-btn-hover-border-color) !important;
+    }
+    .btn-force.active {
+      background-color: var(--bs-btn-active-bg) !important;
+      border-color: var(--bs-btn-active-border-color) !important;
     }
   </style>
 </head>
@@ -81,6 +100,10 @@
         grid?.forceRender();
       });
     }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    let selectedFilter = urlParams.get('filter') || 'all';
+
     grid = new gridjs.Grid({
       fixedHeader: true,
       pagination: true,
@@ -125,17 +148,49 @@
       ],
       server: {
         url: '/orders',
-        then: data => data.orders.map(order => [
-          order.number,
-          order.asin,
-          order.product,
-          order.orderedAt,
-          order.etv,
-          order.etvFactor,
-          order.etv * (order.etvFactor ?? 1),
-        ]),
+        then: data => {
+          const orders = selectedFilter === 'adjusted' ? data.orders.filter(order => order.etvFactor === null) : data.orders;
+          return orders.map(order => [
+            order.number,
+            order.asin,
+            order.product,
+            order.orderedAt,
+            order.etv,
+            order.etvFactor,
+            order.etv * (order.etvFactor ?? 1),
+          ]);
+        }
       }
-    }).render(document.getElementById("main"));
+    });
+
+    function filterPlugin() {
+      return gridjs.h('div', {
+        className: 'filters'
+      }, [
+        gridjs.h('div', { className: 'btn-group', role: 'group' }, [
+          gridjs.h('button', {
+            className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'all' ? ' active' : ''),
+            type: 'button',
+            onclick: () => {
+              location.href = '/?filter=all';
+            }
+          }, 'All'),
+          gridjs.h('button', {
+            className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'adjusted' ? ' active' : ''),
+            onclick: () => {
+              location.href = '/?filter=adjusted';
+            }
+          }, 'Not Adjusted')
+        ])
+      ]);
+    }
+    grid.plugin.add({
+      id: 'filterPlugin',
+      component: filterPlugin,
+      position: 0 // header
+    });
+
+    grid.render(document.getElementById("main"));
   </script>
 </body>
 </html>
