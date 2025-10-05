@@ -12,6 +12,7 @@ Graceful.on('exit', (signal, details) => {
 const { DatabaseSync } = require('node:sqlite')
 
 const express = require('express');
+const morgan = require('morgan');
 const path = require('path');
 const fileUpload = require('express-fileupload');
 const { xlsxParse } = require('./xlsx');
@@ -21,6 +22,7 @@ const db = new DatabaseSync(path.join(dbBasePath, 'vinetracker.db'), {
   open: false,
 });
 const app = express();
+app.use(morgan('combined'));
 app.use((req, res, next) => {
   if (!req.ip?.endsWith('172.30.32.2') && req.ip !== '::1' && req.ip !== '127.0.0.1') {
     const error = `Forbidden ingress IP '${req.ip}'. Must call from 172.30.32.2, 127.0.0.1, or ::1 (localhost)`;
