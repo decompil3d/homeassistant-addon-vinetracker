@@ -32,13 +32,15 @@ app.use((req, res, next) => {
     next();
   }
 });
-app.get('/', (req, res) => {
+const router = express.Router();
+app.use('/', router);
+router.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'home.html'));
 });
-app.get('/report', (req, res) => {
+router.get('/report', (req, res) => {
   res.sendFile(path.join(__dirname, 'report.html'));
 });
-app.get('/orders', async (req, res) => {
+router.get('/orders', async (req, res) => {
   try {
     const orders = await getOrders();
     res.json({ orders });
@@ -48,7 +50,7 @@ app.get('/orders', async (req, res) => {
     return;
   }
 });
-app.get('/report-data/:year', async (req, res) => {
+router.get('/report-data/:year', async (req, res) => {
   const strYear = req.params.year;
   const year = parseInt(strYear);
   if (isNaN(year) || year < 2000 || year > 3000) {
@@ -83,7 +85,7 @@ function getMonthlyBreakdown(orders) {
   return monthly;
 }
 
-app.post('/orders/:number/etv', express.json(), async (req, res) => {
+router.post('/orders/:number/etv', express.json(), async (req, res) => {
   const number = req.params.number;
   const { etvFactor } = req.body;
   if (typeof etvFactor !== 'number' || etvFactor < 0 || etvFactor > 1) {
@@ -102,7 +104,7 @@ app.post('/orders/:number/etv', express.json(), async (req, res) => {
   }
 });
 
-app.post('/upload', fileUpload(), async (req, res) => {
+router.post('/upload', fileUpload(), async (req, res) => {
   if (!req.files || !req.files.file) {
     const error = 'Missing file upload';
     console.error(error);
