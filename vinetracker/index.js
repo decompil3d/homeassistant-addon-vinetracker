@@ -9,9 +9,11 @@ Graceful.on('exit', (signal, details) => {
   }
 });
 
+const fs = require('node:fs');
 const { DatabaseSync } = require('node:sqlite')
 
 const express = require('express');
+const Handlebars = require('handlebars');
 const morgan = require('morgan');
 const path = require('path');
 const fileUpload = require('express-fileupload');
@@ -32,15 +34,23 @@ app.use((req, res, next) => {
     next();
   }
 });
-const router = express.Router();
-app.use('/', router);
-router.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'home.html'));
+let homeTemplate;
+let reportTemplate;
+app.get('/', (req, res) => {
+  if (!homeTemplate) {
+    const homeHtml = fs.readFileSync(path.join(__dirname, 'home.hbs'), 'utf-8');
+    homeTemplate = Handlebars.compile(homeHtml);
+  }
+  res.send(homeTemplate({ ingress: req.get('x-ingress-path') || '' }));
 });
-router.get('/report', (req, res) => {
-  res.sendFile(path.join(__dirname, 'report.html'));
+app.get('/report', (req, res) => {
+  if (!reportTemplate) {
+    const reportHtml = fs.readFileSync(path.join(__dirname, 'report.hbs'), 'utf-8');
+    reportTemplate = Handlebars.compile(reportHtml);
+  }
+  res.send(reportTemplate({ ingress: req.get('x-ingress-path') || '' }));
 });
-router.get('/orders', async (req, res) => {
+app.get('/orders', async (req, res) => {
   try {
     const orders = await getOrders();
     res.json({ orders });
@@ -50,7 +60,7 @@ router.get('/orders', async (req, res) => {
     return;
   }
 });
-router.get('/report-data/:year', async (req, res) => {
+app.get('/report-data/:year', async (req, res) => {
   const strYear = req.params.year;
   const year = parseInt(strYear);
   if (isNaN(year) || year < 2000 || year > 3000) {
@@ -85,7 +95,7 @@ function getMonthlyBreakdown(orders) {
   return monthly;
 }
 
-router.post('/orders/:number/etv', express.json(), async (req, res) => {
+app.post('/orders/:number/etv', express.json(), async (req, res) => {
   const number = req.params.number;
   const { etvFactor } = req.body;
   if (typeof etvFactor !== 'number' || etvFactor < 0 || etvFactor > 1) {
@@ -104,7 +114,7 @@ router.post('/orders/:number/etv', express.json(), async (req, res) => {
   }
 });
 
-router.post('/upload', fileUpload(), async (req, res) => {
+app.post('/upload', fileUpload(), async (req, res) => {
   if (!req.files || !req.files.file) {
     const error = 'Missing file upload';
     console.error(error);

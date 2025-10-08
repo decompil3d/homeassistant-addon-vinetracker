@@ -45,17 +45,17 @@
 <body class="container-fluid bg-light" style="padding-top: 70px;">
   <nav class="navbar fixed-top navbar-expand-lg bg-info">
     <div class="container-fluid">
-      <a class="navbar-brand" href="/">Vine Tracker</a>
+      <a class="navbar-brand" href="{{ ingress }}/">Vine Tracker</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="/">Home</a>
+            <a class="nav-link active" aria-current="page" href="{{ ingress }}/">Home</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/report">Report</a>
+            <a class="nav-link" href="{{ ingress }}/report">Report</a>
           </li>
         </ul>
         <button class="btn btn-light" type="button" data-bs-toggle="modal" data-bs-target="#uploadModal">Upload Orders</button>
@@ -69,7 +69,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <form action="/upload" class="dropzone" id="orderUploadDropzone"></form>
+            <form action="{{ ingress }}/upload" class="dropzone" id="orderUploadDropzone"></form>
             <script>
               Dropzone.options.orderUploadDropzone = {
                 acceptedFiles: '.xlsx',
@@ -90,7 +90,7 @@
     <script type="text/javascript">
       let grid = null;
       function updateETVFactor(orderNumber, factor) {
-        fetch(`/orders/${orderNumber}/etv`, {
+        fetch(`{{ ingress }}/orders/${orderNumber}/etv`, {
           method: 'POST',
           headers: {
           'Content-Type': 'application/json',
@@ -147,7 +147,7 @@
         },
       ],
       server: {
-        url: '/orders',
+        url: '{{ ingress }}/orders',
         then: data => {
           const orders = selectedFilter === 'adjusted' ? data.orders.filter(order => order.etvFactor === null) : data.orders;
           return orders.map(order => [
@@ -172,13 +172,13 @@
             className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'all' ? ' active' : ''),
             type: 'button',
             onclick: () => {
-              location.href = '/?filter=all';
+              location.href = '{{ ingress }}/?filter=all';
             }
           }, 'All'),
           gridjs.h('button', {
             className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'adjusted' ? ' active' : ''),
             onclick: () => {
-              location.href = '/?filter=adjusted';
+              location.href = '{{ ingress }}/?filter=adjusted';
             }
           }, 'Not Adjusted')
         ])
