@@ -114,6 +114,25 @@ app.post('/orders/:number/etv', express.json(), async (req, res) => {
   }
 });
 
+app.post('/orders/:number/etv-reason', express.json(), async (req, res) => {
+  const number = req.params.number;
+  const { reason } = req.body;
+  if (typeof reason !== 'string' || reason.length > 255) {
+    const error = 'Invalid reason. Must be a string up to 255 characters';
+    console.error(error);
+    res.status(400).json({ error });
+    return;
+  }
+  try {
+    setETVReasonForOrder(number, reason);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: err.message });
+    return;
+  }
+});
+
 app.post('/upload', fileUpload(), async (req, res) => {
   if (!req.files || !req.files.file) {
     const error = 'Missing file upload';
@@ -182,7 +201,8 @@ app.listen(8099, () => {
     deliveredAt TEXT,
     etv REAL,
     etvFactor REAL,
-    cancelled INTEGER DEFAULT 0
+    cancelled INTEGER DEFAULT 0,
+    etvReason TEXT
   )`);
 });
 
@@ -196,6 +216,7 @@ app.listen(8099, () => {
  * @prop {number} etv Original ETV
  * @prop {number | null} etvFactor Residual percent of ETV at transfer to personal use
  * @prop {boolean} [cancelled] Whether the order was cancelled
+ * @prop {string} [etvReason] Reason for ETV adjustment
  */
 
 /**
@@ -212,8 +233,8 @@ function getOrders() {
  * @param {Order} order
  */
 function maybeInsertOrder(order) {
-  const stmt = db.prepare(`INSERT OR IGNORE INTO orders (number, asin, product, orderedAt, deliveredAt, etv, etvFactor, cancelled)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0)`);
+  const stmt = db.prepare(`INSERT OR IGNORE INTO orders (number, asin, product, orderedAt, deliveredAt, etv, etvFactor, cancelled, etvReason)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL)`);
   stmt.run(order.number,
     order.asin,
     order.product,
@@ -234,6 +255,16 @@ function setETVFactorForOrder(number, etvFactor) {
 }
 
 /**
+ * Set the ETV reason for an order
+ * @param {string} number
+ * @param {string} reason
+ */
+function setETVReasonForOrder(number, reason) {
+  const stmt = db.prepare(`UPDATE orders SET etvReason = ? WHERE number = ?`);
+  stmt.run(reason, number);
+}
+
+/**
  * Convert a SQL row to an Order
  * @param {Record<string, any>} row
  */
@@ -247,5 +278,6 @@ function toOrder(row) {
     etv: row.etv,
     etvFactor: row.etvFactor,
     cancelled: row.cancelled === 1,
+    etvReason: row.etvReason
   };
 }

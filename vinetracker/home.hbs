@@ -93,104 +93,134 @@
         fetch(`{{ ingress }}/orders/${orderNumber}/etv`, {
           method: 'POST',
           headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ etvFactor: parseFloat(factor) }),
-      }).then(() => {
-        grid?.forceRender();
-      });
-    }
-
-    const urlParams = new URLSearchParams(window.location.search);
-    let selectedFilter = urlParams.get('filter') || 'all';
-
-    grid = new gridjs.Grid({
-      fixedHeader: true,
-      pagination: true,
-      search: {
-        selector: (cell, rowIndex, cellIndex) => cellIndex === 5 ? cell === null ? 'not-adjusted' : cell : cell
-      },
-      columns: [
-        {
-          name: 'Number',
-          formatter: (cell) => gridjs.html(`<a href="https://www.amazon.com/gp/your-account/order-details?orderID=${cell}" target="_blank" rel="noopener noreferrer" class="fs-7">${cell}</a>`),
-        },
-        {
-          name: 'ASIN',
-          formatter: (cell) => gridjs.html(`<a href="https://www.amazon.com/dp/${cell}" target="_blank" rel="noopener noreferrer" class="fs-7">${cell}</a>`),
-        },
-        {
-          name: 'Product',
-          formatter: (cell, row) => gridjs.html(`<a href="https://www.amazon.com/dp/${row.cells[1].data}" target="_blank" rel="noopener noreferrer">${cell}</a>`),
-        },
-        {
-          name: 'Order date',
-          formatter: (cell) => gridjs.html(`<time datetime="${cell}">${new Date(cell).toLocaleDateString()}</time>`),
-          sort: true,
-        },
-        {
-          name: 'ETV',
-          formatter: (cell) => gridjs.html(`$${cell.toFixed(2)}`),
-        },
-        {
-          name: 'ETV Factor',
-          formatter: (cell, row) => gridjs.html(`<select onchange="updateETVFactor('${row.cells[0].data}', this.value)" class="form-select">
-            <option value="" ${cell === null ? 'selected' : ''}></option>
-            <option value="0" ${cell === 0 ? 'selected' : ''}>0%</option>
-            <option value="0.2" ${cell === 0.2 ? 'selected' : ''}>20%</option>
-            <option value="0.5" ${cell === 0.5 ? 'selected' : ''}>50%</option>
-          </select>`),
-        },
-        {
-          name: 'Adjusted ETV',
-          formatter: (cell) => gridjs.html(`$${cell.toFixed(2)}`),
-        },
-      ],
-      server: {
-        url: '{{ ingress }}/orders',
-        then: data => {
-          const orders = selectedFilter === 'adjusted' ? data.orders.filter(order => order.etvFactor === null) : data.orders;
-          return orders.map(order => [
-            order.number,
-            order.asin,
-            order.product,
-            order.orderedAt,
-            order.etv,
-            order.etvFactor,
-            order.etv * (order.etvFactor ?? 1),
-          ]);
-        }
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ etvFactor: parseFloat(factor) }),
+        }).then(() => {
+          grid?.forceRender();
+        });
       }
-    });
 
-    function filterPlugin() {
-      return gridjs.h('div', {
-        className: 'filters'
-      }, [
-        gridjs.h('div', { className: 'btn-group', role: 'group' }, [
-          gridjs.h('button', {
-            className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'all' ? ' active' : ''),
-            type: 'button',
-            onclick: () => {
-              location.href = '{{ ingress }}/?filter=all';
-            }
-          }, 'All'),
-          gridjs.h('button', {
-            className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'adjusted' ? ' active' : ''),
-            onclick: () => {
-              location.href = '{{ ingress }}/?filter=adjusted';
-            }
-          }, 'Not Adjusted')
-        ])
-      ]);
-    }
-    grid.plugin.add({
-      id: 'filterPlugin',
-      component: filterPlugin,
-      position: 0 // header
-    });
+      function updateETVReason(orderNumber, reason) {
+        fetch(`{{ ingress }}/orders/${orderNumber}/etv-reason`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ reason }),
+        }).then(() => {
+          grid?.forceRender();
+        });
+      }
 
-    grid.render(document.getElementById("main"));
+      const urlParams = new URLSearchParams(window.location.search);
+      let selectedFilter = urlParams.get('filter') || 'all';
+
+      grid = new gridjs.Grid({
+        fixedHeader: true,
+        pagination: true,
+        search: {
+          selector: (cell, rowIndex, cellIndex) => cellIndex === 5 ? cell === null ? 'not-adjusted' : cell : cell
+        },
+        columns: [
+          {
+            name: 'Number',
+            formatter: (cell) => gridjs.html(`<a href="https://www.amazon.com/gp/your-account/order-details?orderID=${cell}" target="_blank" rel="noopener noreferrer" class="fs-7">${cell}</a>`),
+          },
+          {
+            name: 'ASIN',
+            formatter: (cell) => gridjs.html(`<a href="https://www.amazon.com/dp/${cell}" target="_blank" rel="noopener noreferrer" class="fs-7">${cell}</a>`),
+          },
+          {
+            name: 'Product',
+            formatter: (cell, row) => gridjs.html(`<a href="https://www.amazon.com/dp/${row.cells[1].data}" target="_blank" rel="noopener noreferrer">${cell}</a>`),
+          },
+          {
+            name: 'Order date',
+            formatter: (cell) => gridjs.html(`<time datetime="${cell}">${new Date(cell).toLocaleDateString()}</time>`),
+            sort: true,
+          },
+          {
+            name: 'ETV',
+            formatter: (cell) => gridjs.html(`$${cell.toFixed(2)}`),
+          },
+          {
+            name: 'ETV Factor',
+            formatter: (cell, row) => gridjs.html(`<select onchange="updateETVFactor('${row.cells[0].data}', this.value)" class="form-select">
+              <option value="" ${cell === null ? 'selected' : ''}></option>
+              <option value="0" ${cell === 0 ? 'selected' : ''}>0%</option>
+              <option value="0.2" ${cell === 0.2 ? 'selected' : ''}>20%</option>
+              <option value="0.5" ${cell === 0.5 ? 'selected' : ''}>50%</option>
+            </select>${cell !== null && cell !== 0.2 ? `<br />
+              <select onchange="updateETVReason('${row.cells[0].data}', this.value)" class="form-select">
+                <option value="" ${row.cells[7].data === null ? 'selected' : ''}></option>
+                ${cell === 0 ? `
+                  <option value="Damaged/defective" ${row.cells[7].data === 'Damaged/defective' ? 'selected' : ''}>Damaged/defective</option>
+                  <option value="Disposed of" ${row.cells[7].data === 'Disposed of' ? 'selected' : ''}>Disposed of</option>
+                  <option value="Other" ${row.cells[7].data === 'Other' ? 'selected' : ''}>Other</option>
+                ` : cell === 0.5 ? `
+                  <option value="Brand name" ${row.cells[7].data === 'Brand name' ? 'selected' : ''}>Brand name</option>
+                  <option value="Other" ${row.cells[7].data === 'Other' ? 'selected' : ''}>Other</option>
+                ` : `
+                  <option value="Other" ${row.cells[7].data === 'Other' ? 'selected' : ''}>Other</option>
+                `}
+              </select>` : ''}`),
+          },
+          {
+            name: 'Adjusted ETV',
+            formatter: (cell) => gridjs.html(`$${cell.toFixed(2)}`),
+          },
+          {
+            name: 'ETV Reason',
+            hidden: true,
+          }
+        ],
+        server: {
+          url: '{{ ingress }}/orders',
+          then: data => {
+            const orders = selectedFilter === 'adjusted' ? data.orders.filter(order => order.etvFactor === null) : data.orders;
+            return orders.map(order => [
+              order.number,
+              order.asin,
+              order.product,
+              order.orderedAt,
+              order.etv,
+              order.etvFactor,
+              order.etv * (order.etvFactor ?? 1),
+              order.etvReason || null,
+            ]);
+          }
+        }
+      });
+
+      function filterPlugin() {
+        return gridjs.h('div', {
+          className: 'filters'
+        }, [
+          gridjs.h('div', { className: 'btn-group', role: 'group' }, [
+            gridjs.h('button', {
+              className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'all' ? ' active' : ''),
+              type: 'button',
+              onclick: () => {
+                location.href = '{{ ingress }}/?filter=all';
+              }
+            }, 'All'),
+            gridjs.h('button', {
+              className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'adjusted' ? ' active' : ''),
+              onclick: () => {
+                location.href = '{{ ingress }}/?filter=adjusted';
+              }
+            }, 'Not Adjusted')
+          ])
+        ]);
+      }
+      grid.plugin.add({
+        id: 'filterPlugin',
+        component: filterPlugin,
+        position: 0 // header
+      });
+
+      grid.render(document.getElementById("main"));
   </script>
 </body>
 </html>
