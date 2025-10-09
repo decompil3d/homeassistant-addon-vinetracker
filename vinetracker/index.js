@@ -46,7 +46,8 @@ app.get('/', (req, res) => {
     lowReasons: [
       'Damaged/defective',
       'Disposed of',
-      'Consumed for review'
+      'Consumed for review',
+      'Did not receive'
     ],
     highReasons: [
       'Brand name'
@@ -108,8 +109,8 @@ function getMonthlyBreakdown(orders) {
 app.post('/orders/:number/etv', express.json(), async (req, res) => {
   const number = req.params.number;
   const { etvFactor } = req.body;
-  if (typeof etvFactor !== 'number' || etvFactor < 0 || etvFactor > 1) {
-    const error = 'Invalid etvFactor. Must be a number between 0 and 1';
+  if (etvFactor !== null && (typeof etvFactor !== 'number' || etvFactor < 0 || etvFactor > 1)) {
+    const error = 'Invalid etvFactor. Must be a number between 0 and 1, or null';
     console.error(error);
     res.status(400).json({ error });
     return;
@@ -255,7 +256,7 @@ app.listen(8099, () => {
  * @returns {Order[]} List of orders
  */
 function getOrders() {
-  const orders = db.prepare('SELECT * FROM orders ORDER BY orderedAt ASC').all();
+  const orders = db.prepare('SELECT * FROM orders WHERE cancelled = 0 ORDER BY orderedAt ASC').all();
   return orders.map(toOrder);
 }
 
@@ -278,7 +279,7 @@ function maybeInsertOrder(order) {
 /**
  * Set the ETV factor for an order
  * @param {string} number
- * @param {number} etvFactor
+ * @param {number | null} etvFactor
  */
 function setETVFactorForOrder(number, etvFactor) {
   const stmt = db.prepare(`UPDATE orders SET etvFactor = ? WHERE number = ?`);

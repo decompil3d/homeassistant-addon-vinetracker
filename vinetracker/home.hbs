@@ -112,7 +112,7 @@
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ etvFactor: parseFloat(factor) }),
+          body: JSON.stringify({ etvFactor: factor === null ? null : parseFloat(factor) }),
         }).then(() => {
           refreshGrid();
         });
@@ -198,7 +198,8 @@
         server: {
           url: '{{ ingress }}/orders',
           then: data => {
-            const orders = selectedFilter === 'adjusted' ? data.orders.filter(order => order.etvFactor === null) : data.orders;
+            const orders = selectedFilter === 'adjusted' ? data.orders.filter(order => order.etvFactor === null || (
+              order.etvFactor !== null && order.etvFactor !== 0.2 && order.etvReason === null)) : data.orders;
             return orders.map(order => [
               order.number,
               order.asin,
