@@ -41,7 +41,17 @@ app.get('/', (req, res) => {
     const homeHtml = fs.readFileSync(path.join(__dirname, 'home.hbs'), 'utf-8');
     homeTemplate = Handlebars.compile(homeHtml);
   }
-  res.send(homeTemplate({ ingress: req.get('x-ingress-path') || '' }));
+  res.send(homeTemplate({
+    ingress: req.get('x-ingress-path') || '',
+    lowReasons: [
+      'Damaged/defective',
+      'Disposed of',
+      'Consumed for review'
+    ],
+    highReasons: [
+      'Brand name'
+    ]
+  }));
 });
 app.get('/report', (req, res) => {
   if (!reportTemplate) {
@@ -133,6 +143,25 @@ app.post('/orders/:number/etv-reason', express.json(), async (req, res) => {
   }
 });
 
+app.post('/orders/:number/notes', express.json(), async (req, res) => {
+  const number = req.params.number;
+  const { notes } = req.body;
+  if (typeof notes !== 'string' || notes.length > 2000) {
+    const error = 'Invalid notes. Must be a string up to 2000 characters';
+    console.error(error);
+    res.status(400).json({ error });
+    return;
+  }
+  try {
+    setNotesForOrder(number, notes);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: err.message });
+    return;
+  }
+});
+
 app.post('/upload', fileUpload(), async (req, res) => {
   if (!req.files || !req.files.file) {
     const error = 'Missing file upload';
@@ -202,7 +231,8 @@ app.listen(8099, () => {
     etv REAL,
     etvFactor REAL,
     cancelled INTEGER DEFAULT 0,
-    etvReason TEXT
+    etvReason TEXT,
+    notes TEXT
   )`);
 });
 
@@ -217,6 +247,7 @@ app.listen(8099, () => {
  * @prop {number | null} etvFactor Residual percent of ETV at transfer to personal use
  * @prop {boolean} [cancelled] Whether the order was cancelled
  * @prop {string} [etvReason] Reason for ETV adjustment
+ * @prop {string} [notes] Additional notes
  */
 
 /**
@@ -257,11 +288,24 @@ function setETVFactorForOrder(number, etvFactor) {
 /**
  * Set the ETV reason for an order
  * @param {string} number
- * @param {string} reason
+ * @param {string | null} reason
  */
 function setETVReasonForOrder(number, reason) {
+  if (reason === '') {
+    reason = null;
+  }
   const stmt = db.prepare(`UPDATE orders SET etvReason = ? WHERE number = ?`);
   stmt.run(reason, number);
+}
+
+/**
+ * Set the notes for an order
+ * @param {string} number
+ * @param {string} notes
+ */
+function setNotesForOrder(number, notes) {
+  const stmt = db.prepare(`UPDATE orders SET notes = ? WHERE number = ?`);
+  stmt.run(notes, number);
 }
 
 /**

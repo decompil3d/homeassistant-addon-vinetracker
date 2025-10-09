@@ -89,6 +89,23 @@
     <main id="main"></main>
     <script type="text/javascript">
       let grid = null;
+      function refreshGrid() {
+        const paginationSummaryElm = document.querySelector('.gridjs-summary');
+        if (!paginationSummaryElm) throw new Error('no pagination summary found');
+        const paginationSummary = paginationSummaryElm.getAttribute('title');
+        const currentPageStr = paginationSummary.substring(5, paginationSummary.indexOf(' ', 5));
+        const currentPage = parseInt(currentPageStr, 10);
+        if (Number.isNaN(currentPage)) throw new Error('invalid page found: ' + currentPageStr);
+
+        grid?.updateConfig({
+          pagination: {
+            resetPageOnUpdate: false,
+            page: currentPage - 1
+          }
+        });
+
+        grid?.forceRender();
+      }
       function updateETVFactor(orderNumber, factor) {
         fetch(`{{ ingress }}/orders/${orderNumber}/etv`, {
           method: 'POST',
@@ -97,7 +114,7 @@
           },
           body: JSON.stringify({ etvFactor: parseFloat(factor) }),
         }).then(() => {
-          grid?.forceRender();
+          refreshGrid();
         });
       }
 
@@ -109,7 +126,7 @@
           },
           body: JSON.stringify({ reason }),
         }).then(() => {
-          grid?.forceRender();
+          refreshGrid();
         });
       }
 
@@ -118,7 +135,9 @@
 
       grid = new gridjs.Grid({
         fixedHeader: true,
-        pagination: true,
+        pagination: {
+          resetPageOnUpdate: false
+        },
         search: {
           selector: (cell, rowIndex, cellIndex) => cellIndex === 5 ? cell === null ? 'not-adjusted' : cell : cell
         },
@@ -154,16 +173,17 @@
             </select>${cell !== null && cell !== 0.2 ? `<br />
               <select onchange="updateETVReason('${row.cells[0].data}', this.value)" class="form-select">
                 <option value="" ${row.cells[7].data === null ? 'selected' : ''}></option>
-                ${cell === 0 ? `
-                  <option value="Damaged/defective" ${row.cells[7].data === 'Damaged/defective' ? 'selected' : ''}>Damaged/defective</option>
-                  <option value="Disposed of" ${row.cells[7].data === 'Disposed of' ? 'selected' : ''}>Disposed of</option>
-                  <option value="Other" ${row.cells[7].data === 'Other' ? 'selected' : ''}>Other</option>
-                ` : cell === 0.5 ? `
-                  <option value="Brand name" ${row.cells[7].data === 'Brand name' ? 'selected' : ''}>Brand name</option>
-                  <option value="Other" ${row.cells[7].data === 'Other' ? 'selected' : ''}>Other</option>
-                ` : `
-                  <option value="Other" ${row.cells[7].data === 'Other' ? 'selected' : ''}>Other</option>
-                `}
+                <optgroup label="Reasons for low percent">
+                  {{#each lowReasons}}
+                  <option value="{{this}}" ${row.cells[7].data === '{{this}}' ? 'selected' : ''}>{{this}}</option>
+                  {{/each}}
+                </optgroup>
+                <optgroup label="Reasons for high percent">
+                  {{#each highReasons}}
+                  <option value="{{this}}" ${row.cells[7].data === '{{this}}' ? 'selected' : ''}>{{this}}</option>
+                  {{/each}}
+                </optgroup>
+                <option value="Other" ${row.cells[7].data === 'Other' ? 'selected' : ''}>Other</option>
               </select>` : ''}`),
           },
           {
