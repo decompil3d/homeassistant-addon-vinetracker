@@ -109,8 +109,8 @@ function getMonthlyBreakdown(orders) {
 app.post('/orders/:number/etv', express.json(), async (req, res) => {
   const number = req.params.number;
   const { etvFactor } = req.body;
-  if (etvFactor !== null && (typeof etvFactor !== 'number' || etvFactor < 0 || etvFactor > 1)) {
-    const error = 'Invalid etvFactor. Must be a number between 0 and 1, or null';
+  if (etvFactor !== null && (typeof etvFactor !== 'number' || etvFactor < 0)) {
+    const error = 'Invalid etvFactor. Must be a number greater than or equal to 0, or null';
     console.error(error);
     res.status(400).json({ error });
     return;

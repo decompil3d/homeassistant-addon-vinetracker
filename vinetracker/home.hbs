@@ -11,6 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/gridjs@6.2.0/dist/gridjs.production.min.js" integrity="sha256-90AvNHcVVoxz8GF4Ht2Ofc7uzdfiUDwooQErfMvBJQk=" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.js" integrity="sha256-uCdT6FLkY6+68Xzm4f9O0usHnJPdKv0Q0rsoXvLchP4=" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.css" integrity="sha256-n/Cuyrm+v15Nim0mJ2ZrElHlCk8raJs/57WeCsIzDr4=" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/lodash.debounce@4.0.8/index.min.js"></script>
   <style>
     .fs-7 {
       font-size: 0.8rem;
@@ -106,7 +107,19 @@
 
         grid?.forceRender();
       }
-      function updateETVFactor(orderNumber, factor) {
+      function updateETVFactor(orderNumber, factor, originalEtv) {
+        const customInput = document.getElementById(`custom-${orderNumber}`);
+        if (factor === 'custom') {
+          if (!customInput) return;
+          customInput.value = originalEtv.toFixed(2);
+          customInput.classList.remove('d-none');
+          customInput.classList.add('d-block');
+          return;
+        } else {
+          customInput.classList.remove('d-block');
+          customInput.classList.add('d-none');
+        }
+
         fetch(`{{ ingress }}/orders/${orderNumber}/etv`, {
           method: 'POST',
           headers: {
@@ -129,6 +142,23 @@
           refreshGrid();
         });
       }
+
+      function updateCustomETVReal(orderNumber, strCustomValue, originalEtv) {
+        if (!strCustomValue) return;
+        const customValue = parseFloat(strCustomValue);
+        if (Number.isNaN(customValue)) return;
+        const etvFactor = customValue / originalEtv;
+        fetch(`{{ ingress }}/orders/${orderNumber}/etv`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ etvFactor })
+        }).then(() => {
+          refreshGrid();
+        })
+      }
+      const updateCustomETV = debounce(updateCustomETVReal, 200);
 
       const urlParams = new URLSearchParams(window.location.search);
       let selectedFilter = urlParams.get('filter') || 'all';
@@ -165,26 +195,33 @@
           },
           {
             name: 'ETV Factor',
-            formatter: (cell, row) => row.cells[4].data === 0 ? '' : gridjs.html(`<select onchange="updateETVFactor('${row.cells[0].data}', this.value)" class="form-select">
-              <option value="" ${cell === null ? 'selected' : ''}></option>
-              <option value="0" ${cell === 0 ? 'selected' : ''}>0%</option>
-              <option value="0.2" ${cell === 0.2 ? 'selected' : ''}>20%</option>
-              <option value="0.5" ${cell === 0.5 ? 'selected' : ''}>50%</option>
-            </select>${cell !== null && cell !== 0.2 ? `<br />
-              <select onchange="updateETVReason('${row.cells[0].data}', this.value)" class="form-select">
-                <option value="" ${row.cells[7].data === null ? 'selected' : ''}></option>
-                <optgroup label="Reasons for low percent">
-                  {{#each lowReasons}}
-                  <option value="{{this}}" ${row.cells[7].data === '{{this}}' ? 'selected' : ''}>{{this}}</option>
-                  {{/each}}
-                </optgroup>
-                <optgroup label="Reasons for high percent">
-                  {{#each highReasons}}
-                  <option value="{{this}}" ${row.cells[7].data === '{{this}}' ? 'selected' : ''}>{{this}}</option>
-                  {{/each}}
-                </optgroup>
-                <option value="Other" ${row.cells[7].data === 'Other' ? 'selected' : ''}>Other</option>
-              </select>` : ''}`),
+            formatter: (cell, row) => {
+              const isCustom = (cell !== null && cell !== 0 && cell !== 0.2 && cell !== 0.5);
+              return row.cells[4].data === 0 ? '' : gridjs.html(`<select onchange="updateETVFactor('${row.cells[0].data}', this.value, ${row.cells[4].data})" class="form-select">
+                <option value="" ${cell === null ? 'selected' : ''}></option>
+                <option value="0" ${cell === 0 ? 'selected' : ''}>0%</option>
+                <option value="0.2" ${cell === 0.2 ? 'selected' : ''}>20%</option>
+                <option value="0.5" ${cell === 0.5 ? 'selected' : ''}>50%</option>
+                <option value="custom" ${isCustom ? 'selected' : ''}>Custom</option>
+              </select>
+              <input type="number" class="form-control ${isCustom ? 'd-block' : 'd-none'}" id="custom-${row.cells[0].data}" onchange="updateCustomETV('${row.cells[0].data}', this.value, ${row.cells[4].data})" min="0" step="0.01" value="${isCustom ? (row.cells[4].data * cell).toFixed(2) : row.cells[4].data.toFixed(2)}" />
+              ${cell !== null && cell !== 0.2 ? `
+                <select onchange="updateETVReason('${row.cells[0].data}', this.value)" class="form-select d-block">
+                  <option value="" ${row.cells[7].data === null ? 'selected' : ''}></option>
+                  <optgroup label="Reasons for low percent">
+                    {{#each lowReasons}}
+                    <option value="{{this}}" ${row.cells[7].data === '{{this}}' ? 'selected' : ''}>{{this}}</option>
+                    {{/each}}
+                  </optgroup>
+                  <optgroup label="Reasons for high percent">
+                    {{#each highReasons}}
+                    <option value="{{this}}" ${row.cells[7].data === '{{this}}' ? 'selected' : ''}>{{this}}</option>
+                    {{/each}}
+                  </optgroup>
+                  <option value="Adjusted fair market value" ${row.cells[7].data === 'Adjusted fair market value' ? 'selected' : ''}>Adjusted fair market value</option>
+                  <option value="Other" ${row.cells[7].data === 'Other' ? 'selected' : ''}>Other</option>
+                </select>` : ''}`);
+            }
           },
           {
             name: 'Adjusted ETV',

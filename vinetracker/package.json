@@ -1,11 +1,11 @@
 {
   "name": "homeassistant-addon-vinetracker",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "HomeAssistant Addon that helps track order ETVs from Vine",
   "main": "index.js",
   "scripts": {
     "start": "node ./index.js",
-    "dev": "nodemon -e 'js html'",
+    "dev": "nodemon -e 'js hbs'",
     "debug": "npm run dev -- --inspect"
   },
   "repository": {
