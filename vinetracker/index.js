@@ -63,7 +63,7 @@ app.get('/report', (req, res) => {
 });
 app.get('/orders', async (req, res) => {
   try {
-    const orders = await getOrders();
+    const orders = await getOrders(req.query['cancelled'] === 'true');
     res.json({ orders });
   } catch (err) {
     console.error(err.message);
@@ -253,10 +253,11 @@ app.listen(8099, () => {
 
 /**
  * Fetch orders from SQL
+ * @param {boolean} [cancelled=false] Whether to fetch only cancelled orders (true), or only not-cancelled (false)
  * @returns {Order[]} List of orders
  */
-function getOrders() {
-  const orders = db.prepare('SELECT * FROM orders WHERE cancelled = 0 ORDER BY orderedAt ASC').all();
+function getOrders(cancelled = false) {
+  const orders = db.prepare('SELECT * FROM orders WHERE cancelled = ? ORDER BY orderedAt ASC').all(cancelled ? 1 : 0);
   return orders.map(toOrder);
 }
 

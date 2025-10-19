@@ -42,6 +42,16 @@
       background-color: var(--bs-btn-active-bg) !important;
       border-color: var(--bs-btn-active-border-color) !important;
     }
+    .cancelled {
+      display: inline-block;
+      padding: 4px;
+      background-color: #c00;
+      color: #fff;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.6rem;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body class="container-fluid bg-light" style="padding-top: 70px;">
@@ -175,7 +185,7 @@
         columns: [
           {
             name: 'Number',
-            formatter: (cell) => gridjs.html(`<a href="https://www.amazon.com/gp/your-account/order-details?orderID=${cell}" target="_blank" rel="noopener noreferrer" class="fs-7">${cell}</a>`),
+            formatter: (cell, row) => gridjs.html(`${row.cells[8].data ? '<span class="cancelled">Cancelled</span><br />' : ''}<a href="https://www.amazon.com/gp/your-account/order-details?orderID=${cell}" target="_blank" rel="noopener noreferrer" class="fs-7">${cell}</a>`),
           },
           {
             name: 'ASIN',
@@ -198,6 +208,10 @@
           {
             name: 'ETV Factor',
             formatter: (cell, row) => {
+              // Cancelled
+              if (row.cells[8].data) return '';
+              
+              // Not cancelled
               const isCustom = (cell !== null && cell !== 0 && cell !== 0.2 && cell !== 0.5);
               return row.cells[4].data === 0 ? '' : gridjs.html(`<select onchange="updateETVFactor('${row.cells[0].data}', this.value, ${row.cells[4].data})" class="form-select">
                 <option value="" ${cell === null ? 'selected' : ''}></option>
@@ -228,16 +242,20 @@
           },
           {
             name: 'Adjusted ETV',
-            formatter: (cell) => gridjs.html(`$${cell.toFixed(2)}`),
+            formatter: (cell, row) => row.cells[8].data ? gridjs.html('$0.00') : gridjs.html(`$${cell.toFixed(2)}`),
             sort: true,
           },
           {
             name: 'ETV Reason',
             hidden: true,
+          },
+          {
+            name: 'Cancelled',
+            hidden: true,
           }
         ],
         server: {
-          url: '{{ ingress }}/orders',
+          url: '{{ ingress }}/orders' + (selectedFilter === 'cancelled' ? '?cancelled=true' : ''),
           then: data => {
             const orders = selectedFilter === 'adjusted' ? data.orders.filter(order => order.etvFactor === null || (
               order.etvFactor !== null && order.etvFactor !== 0.2 && order.etvReason === null)) : data.orders;
@@ -250,6 +268,7 @@
               order.etvFactor,
               order.etv * (order.etvFactor ?? 1),
               order.etvReason || null,
+              order.cancelled
             ]);
           }
         }
@@ -272,7 +291,13 @@
               onclick: () => {
                 location.href = '{{ ingress }}/?filter=adjusted';
               }
-            }, 'Not Adjusted')
+            }, 'Not Adjusted'),
+            gridjs.h('button', {
+              className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'cancelled' ? ' active' : ''),
+              onclick: () => {
+                location.href = '{{ ingress }}/?filter=cancelled';
+              }
+            }, 'Cancelled'),
           ])
         ]);
       }
