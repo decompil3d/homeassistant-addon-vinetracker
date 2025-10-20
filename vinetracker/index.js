@@ -34,7 +34,9 @@ app.use((req, res, next) => {
     next();
   }
 });
+/** @type {ReturnType<Handlebars.compile>} */
 let homeTemplate;
+/** @type {ReturnType<Handlebars.compile>} */
 let reportTemplate;
 app.get('/', (req, res) => {
   if (!homeTemplate) {
@@ -66,8 +68,9 @@ app.get('/orders', async (req, res) => {
     const orders = await getOrders(req.query['cancelled'] === 'true');
     res.json({ orders });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: err.message });
+    const msg = typeof err === 'object' && err && 'message' in err && err.message;
+    console.error(msg);
+    res.status(500).json({ error: msg });
     return;
   }
 });
@@ -90,6 +93,18 @@ app.get('/report-data/:year', async (req, res) => {
   });
 });
 
+/**
+ * @typedef {object} MonthlyBreakdown
+ * @prop {number} month
+ * @prop {number} orderCount
+ * @prop {number} totalEtv
+ * @prop {number} totalAdjustedEtv
+ */
+/**
+ * Get the list of orders grouped by month
+ * @param {Order[]} orders Orders for the year
+ * @returns {MonthlyBreakdown[]}
+ */
 function getMonthlyBreakdown(orders) {
   const monthly = [];
   for (let month = 0; month < 12; month++) {
@@ -119,8 +134,9 @@ app.post('/orders/:number/etv', express.json(), async (req, res) => {
     setETVFactorForOrder(number, etvFactor);
     res.json({ success: true });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: err.message });
+    const msg = typeof err === 'object' && err && 'message' in err && err.message;
+    console.error(msg);
+    res.status(500).json({ error: msg });
     return;
   }
 });
@@ -138,8 +154,9 @@ app.post('/orders/:number/etv-reason', express.json(), async (req, res) => {
     setETVReasonForOrder(number, reason);
     res.json({ success: true });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: err.message });
+    const msg = typeof err === 'object' && err && 'message' in err && err.message;
+    console.error(msg);
+    res.status(500).json({ error: msg });
     return;
   }
 });
@@ -157,8 +174,9 @@ app.post('/orders/:number/notes', express.json(), async (req, res) => {
     setNotesForOrder(number, notes);
     res.json({ success: true });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: err.message });
+    const msg = typeof err === 'object' && err && 'message' in err && err.message;
+    console.error(msg);
+    res.status(500).json({ error: msg });
     return;
   }
 });

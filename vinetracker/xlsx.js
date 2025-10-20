@@ -1,7 +1,23 @@
 const XLSX = require('xlsx');
 
+/**
+ * @typedef {object} Row
+ * @prop {string} number
+ * @prop {string} asin
+ * @prop {string} product
+ * @prop {string} type
+ * @prop {string} orderedAtStr
+ * @prop {string} deliveredAtStr
+ * @prop {string} cancelledDateStr
+ * @prop {string} etvStr
+ * @prop {number | null} etvFactor
+ */
+/**
+ * Parse an Excel spreadsheet from the buffer into an array of objects for Vine orders
+ * @param {Buffer} buffer buffer to parse
+ * @returns {Promise<Row[]>} Parsed data
+ */
 async function xlsxParse(buffer) {
-  // TODO: debug this
   const workbook = XLSX.read(buffer, { type: 'buffer' });
   const sheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[sheetName];
@@ -44,7 +60,16 @@ async function xlsxParse(buffer) {
       etvStr,
       etvFactor
     }
-  }).filter(Boolean);
+  }).filter(isTruthy);
+}
+
+/**
+ * @param {T} value
+ * @returns {value is NonNullable<T>}
+ * @template T
+ */
+function isTruthy(value) {
+  return Boolean(value);
 }
 
 module.exports = {

@@ -257,8 +257,8 @@
         server: {
           url: '{{ ingress }}/orders' + (selectedFilter === 'cancelled' ? '?cancelled=true' : ''),
           then: data => {
-            const orders = selectedFilter === 'adjusted' ? data.orders.filter(order => order.etvFactor === null || (
-              order.etvFactor !== null && order.etvFactor !== 0.2 && order.etvReason === null)) : data.orders;
+            const orders = selectedFilter === 'adjusted' ? data.orders.filter(order => order.etv !== 0 && (order.etvFactor === null || (
+              order.etvFactor !== null && order.etvFactor !== 0.2 && order.etvReason === null))) : data.orders;
             return orders.map(order => [
               order.number,
               order.asin,
