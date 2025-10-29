@@ -19,6 +19,47 @@ const path = require('path');
 const fileUpload = require('express-fileupload');
 const { xlsxParse } = require('./xlsx');
 
+const shortDateFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'numeric',
+  day: 'numeric',
+  year: '2-digit'
+});
+/**
+ * Render a date
+ * @param {Date} dt Date object
+ * @returns {string} rendered date
+ */
+function renderDate(dt) {
+  if (!dt) return '';
+  return shortDateFormatter.format(dt);
+}
+Handlebars.registerHelper('date', renderDate);
+
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD'
+});
+/**
+ * Render a currency number
+ * @param {number} num Number to render
+ * @returns {string} rendered as currency
+ */
+function renderCurrency(num) {
+  return currencyFormatter.format(num);
+}
+Handlebars.registerHelper('currency', renderCurrency);
+
+/**
+ * Multiply two numbers
+ * @param {number} num1 First factor
+ * @param {number | null} num2 Second factor, defaults to 1
+ * @returns {string} Product of the factors, rendered as currency
+ */
+function multiply(num1, num2) {
+  return renderCurrency(num1 * (num2 ?? 1));
+}
+Handlebars.registerHelper('multiply', multiply);
+
 const dbBasePath = process.env.DB_BASE_PATH || __dirname;
 const db = new DatabaseSync(path.join(dbBasePath, 'vinetracker.db'), {
   open: false,
@@ -37,7 +78,9 @@ app.use((req, res, next) => {
 /** @type {ReturnType<Handlebars.compile>} */
 let homeTemplate;
 /** @type {ReturnType<Handlebars.compile>} */
-let reportTemplate;
+let overviewTemplate;
+/** @type {ReturnType<Handlebars.compile>} */
+let taxReportTemplate;
 app.get('/', (req, res) => {
   if (!homeTemplate) {
     const homeHtml = fs.readFileSync(path.join(__dirname, 'home.hbs'), 'utf-8');
@@ -56,12 +99,28 @@ app.get('/', (req, res) => {
     ]
   }));
 });
-app.get('/report', (req, res) => {
-  if (!reportTemplate) {
-    const reportHtml = fs.readFileSync(path.join(__dirname, 'report.hbs'), 'utf-8');
-    reportTemplate = Handlebars.compile(reportHtml);
+app.get('/overview', (req, res) => {
+  if (!overviewTemplate) {
+    const overviewHtml = fs.readFileSync(path.join(__dirname, 'overview.hbs'), 'utf-8');
+    overviewTemplate = Handlebars.compile(overviewHtml);
   }
-  res.send(reportTemplate({ ingress: req.get('x-ingress-path') || '' }));
+  res.send(overviewTemplate({ ingress: req.get('x-ingress-path') || '' }));
+});
+app.get('/tax-report{/:year}', (req, res) => {
+  if (!taxReportTemplate) {
+    const taxReportHtml = fs.readFileSync(path.join(__dirname, 'tax-report.hbs'), 'utf-8');
+    taxReportTemplate = Handlebars.compile(taxReportHtml);
+  }
+
+  const strYear = req.params.year;
+  const currentYear = new Date().getFullYear();
+  const year = strYear ? parseInt(strYear) : currentYear;
+  if (isNaN(year) || year < 2000 || year > 3000) {
+    const error = `Invalid year '${strYear}'`;
+  }
+  const orders = getOrders().filter(o => o.orderedAt.getFullYear() === year && !o.cancelled);
+
+  res.send(taxReportTemplate({ ingress: req.get('x-ingress-path') || '', orders, year }));
 });
 app.get('/orders', async (req, res) => {
   try {

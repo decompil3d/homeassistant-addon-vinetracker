@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vine Tracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+  <style>
+    .fs-7 {
+      font-size: 0.8rem;
+    }
+    a {
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .title {
+      display: none;
+    }
+    @media print {
+      nav {
+        display: none !important;
+      }
+      .year-selector {
+        display: none !important;
+      }
+      .title {
+        display: block !important;
+      }
+    }
+  </style>
+</head>
+<body class="container-fluid bg-light" style="padding-top: 70px;">
+  <nav class="navbar fixed-top navbar-expand-lg bg-info">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="{{ ingress }}/">Vine Tracker</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link" href="{{ ingress }}/">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ ingress }}/overview">Overview</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="{{ ingress }}/tax-report">Tax Report</a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+    <main id="main">
+      <div class="container-fluid mb-3 year-selector">
+        <select id="year" class="form-select" style="max-width: 200px; margin-bottom: 10px;">
+        </select>
+      </div>
+      <h1 class="title">Vine order report for {{year}}</h1>
+      <div id="report-content" class="container-fluid">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Date/Order number</th>
+              <th scope="col">Product</th>
+              <th scope="col">Original ETV</th>
+              <th scope="col">Adjusted ETV</th>
+              <th scope="col">Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each orders}}
+            <tr>
+              <td>
+                <p class="fw-semibold text-secondary mb-0">{{date orderedAt}}</p>
+                <p class="text-nowrap">{{number}}</p>
+              </td>
+              <td>
+                <p class="fw-semibold text-secondary mb-0">{{asin}}</p>
+                <p>{{product}}</p>
+              </td>
+              <td>{{currency etv}}</td>
+              <td>{{multiply etv etvFactor}}</td>
+              <td>
+                {{#if etvReason}}
+                {{etvReason}}
+                {{else}}
+                Thrift shop value
+                {{/if}}
+              </td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </div>
+      <script>
+        const yearSelect = document.getElementById('year');
+        let year = 2025;
+        for (let cur = new Date().getFullYear(); year <= cur; year++) {
+          const option = document.createElement('option');
+          option.value = year;
+          option.textContent = year;
+          option.selected = year === {{ year }};
+          yearSelect.appendChild(option);
+        }
+        yearSelect.addEventListener('change', () => {
+          const selectedYear = parseInt(yearSelect.value);
+          if (selectedYear !== {{ year }}) {
+            document.location.href = `{{ ingress }}/tax-report/${selectedYear}`;
+          }
+        });
+      </script>
+    </main>
+  </body>
+</html>

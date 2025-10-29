@@ -10,7 +10,7 @@ RUN apk add --no-cache \
     git \
     sqlite
 
-COPY package.json index.js xlsx.js home.hbs report.hbs /
+COPY package.json index.js xlsx.js *.hbs /
 RUN cd / && npm install --unsafe-perm
 
 COPY run.sh /
