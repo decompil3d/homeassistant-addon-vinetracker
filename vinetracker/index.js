@@ -143,12 +143,30 @@ app.get('/report-data/:year', async (req, res) => {
   const totalEtv = ordersForYear.reduce((sum, o) => sum + o.etv, 0);
   const totalAdjustedEtv = ordersForYear.reduce((sum, o) => sum + (o.etvFactor !== null ? o.etv * o.etvFactor : o.etv), 0);
   
+  /** @type {Map<string, number>} */
+  const initialCount = new Map();
+  /** @type {Map<string, number>} */
+  const initialETV = new Map();
   res.json({
     year,
     totalEtv,
     totalAdjustedEtv,
     orderCount: ordersForYear.length,
-    monthly: getMonthlyBreakdown(ordersForYear)
+    monthly: getMonthlyBreakdown(ordersForYear),
+    orderCountByDate: Object.fromEntries(ordersForYear.reduce((acc, o) => {
+      const key = o.orderedAt.toISOString().split('T')[0];
+      const count = acc.get(key) ?? 0;
+      acc.set(key, count + 1);
+      
+      return acc;
+    }, initialCount).entries()),
+    orderETVByDate: Object.fromEntries(ordersForYear.reduce((acc, o) => {
+      const key = o.orderedAt.toISOString().split('T')[0];
+      const prev = acc.get(key) ?? 0;
+      acc.set(key, prev + o.etv);
+      
+      return acc;
+    }, initialETV).entries()),
   });
 });
 

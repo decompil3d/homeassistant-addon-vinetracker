@@ -7,6 +7,7 @@
   <title>Vine Tracker</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" integrity="sha256-SERKgtTty1vsDxll+qzd4Y2cF9swY9BCq62i9wXJ9Uo=" crossorigin="anonymous"></script>
   <style>
     .fs-7 {
       font-size: 0.8rem;
@@ -103,6 +104,9 @@
                 </div>
               </div>
             </div>
+            <div class="mb-5 row">
+              <canvas id="chart"></canvas>
+            </div>
             <table class="table table-striped">
               <thead>
                 <tr>
@@ -124,6 +128,38 @@
               </tbody>
             </table>
           `;
+          const chart = new Chart(
+            document.getElementById('chart'),
+            {
+              type: 'line',
+              data: {
+                labels: Object.keys(report.orderCountByDate),
+                datasets: [{
+                  label: 'Order count by day',
+                  data: Object.values(report.orderCountByDate),
+                  pointStyle: false,
+                  yAxisID: 'count'
+                }, {
+                  label: 'Order ETV by day',
+                  data: Object.values(report.orderETVByDate),
+                  pointStyle: false,
+                  yAxisID: 'etv'
+                }]
+              },
+              options: {
+                scales: {
+                  count: {
+                    position: 'left'
+                  },
+                  etv: {
+                    position: 'right',
+                    ticks: {
+                      callback: value => `$${value}`
+                    }
+                  }
+                }
+              }
+            });
         }
       </script>
     </main>
