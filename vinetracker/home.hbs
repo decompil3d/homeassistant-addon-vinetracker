@@ -176,6 +176,7 @@
 
       const urlParams = new URLSearchParams(window.location.search);
       let selectedFilter = urlParams.get('filter') || 'all';
+      const initialSearch = urlParams.get('s');
 
       grid = new gridjs.Grid({
         fixedHeader: true,
@@ -183,7 +184,8 @@
           resetPageOnUpdate: false
         },
         search: {
-          selector: (cell, rowIndex, cellIndex) => cellIndex === 5 ? cell === null ? 'not-adjusted' : cell : cell
+          selector: (cell, rowIndex, cellIndex) => cellIndex === 5 ? cell === null ? 'not-adjusted' : cell : cell,
+          keyword: initialSearch ?? undefined,
         },
         columns: [
           {

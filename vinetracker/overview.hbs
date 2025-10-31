@@ -128,6 +128,7 @@
               </tbody>
             </table>
           `;
+          const dates = Array.from(Object.keys(report.orderCountByDate));
           const chart = new Chart(
             document.getElementById('chart'),
             {
@@ -137,12 +138,12 @@
                 datasets: [{
                   label: 'Order count by day',
                   data: Object.values(report.orderCountByDate),
-                  pointStyle: false,
+                  pointStyle: 'circle',
                   yAxisID: 'count'
                 }, {
                   label: 'Order ETV by day',
                   data: Object.values(report.orderETVByDate),
-                  pointStyle: false,
+                  pointStyle: 'circle',
                   yAxisID: 'etv'
                 }]
               },
@@ -156,6 +157,13 @@
                     ticks: {
                       callback: value => `$${value}`
                     }
+                  }
+                },
+                onClick: (evt, elements) => {
+                  if (elements.length > 0) {
+                    const idx = elements[0].index;
+                    const date = dates[idx];
+                    document.location.href = `{{ingress}}/?s=${date}`;
                   }
                 }
               }
