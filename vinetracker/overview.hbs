@@ -128,21 +128,32 @@
               </tbody>
             </table>
           `;
-          const dates = Array.from(Object.keys(report.orderCountByDate));
+          const orderCountByDate = new Map();
+          const orderETVByDate = new Map();
+          const orderDates = Array.from(Object.keys(report.orderCountByDate));
+          const allDates = [];
+          const startDate = new Date(orderDates[0]);
+          const endDate = new Date(orderDates.at(-1));
+          for (let d = startDate; d.getTime() < endDate.getTime(); d.setDate(d.getDate() + 1)) {
+            const key = d.toISOString().split('T')[0];
+            orderCountByDate.set(key, report.orderCountByDate[key] ?? 0);
+            orderETVByDate.set(key, report.orderETVByDate[key] ?? 0);
+            allDates.push(key);
+          }
           const chart = new Chart(
             document.getElementById('chart'),
             {
               type: 'line',
               data: {
-                labels: Object.keys(report.orderCountByDate),
+                labels: Array.from(orderCountByDate.keys()),
                 datasets: [{
                   label: 'Order count by day',
-                  data: Object.values(report.orderCountByDate),
+                  data: Array.from(orderCountByDate.values()),
                   pointStyle: 'circle',
                   yAxisID: 'count'
                 }, {
                   label: 'Order ETV by day',
-                  data: Object.values(report.orderETVByDate),
+                  data: Array.from(orderETVByDate.values()),
                   pointStyle: 'circle',
                   yAxisID: 'etv'
                 }]
