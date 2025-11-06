@@ -173,7 +173,7 @@
                 onClick: (evt, elements) => {
                   if (elements.length > 0) {
                     const idx = elements[0].index;
-                    const date = dates[idx];
+                    const date = allDates[idx];
                     document.location.href = `{{ingress}}/?s=${date}`;
                   }
                 }
