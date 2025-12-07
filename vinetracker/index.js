@@ -118,14 +118,28 @@ app.get('/tax-report{/:year}', (req, res) => {
   if (isNaN(year) || year < 2000 || year > 3000) {
     const error = `Invalid year '${strYear}'`;
   }
-  const orders = getOrders().filter(o => o.orderedAt.getFullYear() === year && !o.cancelled);
+  const orders = getOrders({ year, cancelled: false });
 
   res.send(taxReportTemplate({ ingress: req.get('x-ingress-path') || '', orders, year }));
 });
 app.get('/orders', async (req, res) => {
   try {
-    const orders = await getOrders(req.query['cancelled'] === 'true');
-    res.json({ orders });
+    /** @type {GetOrdersOptions} */
+    const variables = {
+      cancelled: req.query['filter'] === 'cancelled',
+      nonAdjustedOnly: req.query['filter'] === 'adjusted',
+      limit: safeParseInt(req.query['limit']),
+      offset: safeParseInt(req.query['offset']),
+      search: safeQsString(req.query['s'])
+    };
+    const total = getOrders({
+      ...variables,
+      limit: undefined,
+      offset: undefined,
+      countOnly: true
+    });
+    const orders = getOrders(variables);
+    res.json({ orders, total });
   } catch (err) {
     const msg = typeof err === 'object' && err && 'message' in err && err.message;
     console.error(msg);
@@ -139,7 +153,7 @@ app.get('/report-data/:year', async (req, res) => {
   if (isNaN(year) || year < 2000 || year > 3000) {
     const error = `Invalid year '${strYear}'`;
   }
-  const ordersForYear = getOrders().filter(o => o.orderedAt.getFullYear() === year && !o.cancelled);
+  const ordersForYear = getOrders({ year, cancelled: false });
   const totalEtv = ordersForYear.reduce((sum, o) => sum + o.etv, 0);
   const totalAdjustedEtv = ordersForYear.reduce((sum, o) => sum + (o.etvFactor !== null ? o.etv * o.etvFactor : o.etv), 0);
   
@@ -347,13 +361,117 @@ app.listen(8099, () => {
  */
 
 /**
+ * @typedef {object} GetOrdersOptions
+ * @prop {boolean} [cancelled=false] Whether to fetch only cancelled orders (true), or only not-cancelled (false)
+ * @prop {boolean} [nonAdjustedOnly=false] Whether to fetch only non-adjusted orders (true), or all (false)
+ * @prop {number} [limit] The max number of orders to retrieve, defaults to all orders
+ * @prop {number} [offset] How many orders to offset by
+ * @prop {string} [search] A keyword to search for, looks at product name, asin, order number, and order date
+ * @prop {number} [year] Whether to limit results to just those ordered in a certain year
+ */
+/**
+ * @typedef {object} GetOrdersOptionsRows
+ * @prop {false} [countOnly] Whether to only return the count rather than the actual records
+ */
+/**
+ * @typedef {object} GetOrdersOptionsCount
+ * @prop {true} [countOnly] Whether to only return the count rather than the actual records
+ */
+/**
+ * @overload
  * Fetch orders from SQL
- * @param {boolean} [cancelled=false] Whether to fetch only cancelled orders (true), or only not-cancelled (false)
+ * @param {GetOrdersOptions & GetOrdersOptionsRows} options
  * @returns {Order[]} List of orders
  */
-function getOrders(cancelled = false) {
-  const orders = db.prepare('SELECT * FROM orders WHERE cancelled = ? ORDER BY orderedAt ASC').all(cancelled ? 1 : 0);
+/**
+ * @overload
+ * Fetch order count from SQL
+ * @param {GetOrdersOptions & GetOrdersOptionsCount} options
+ * @returns {number} Count of orders
+ */
+/**
+ * @param {GetOrdersOptions & (GetOrdersOptionsRows | GetOrdersOptionsCount)} options
+ */
+function getOrders({
+  cancelled = false,
+  nonAdjustedOnly = false,
+  limit,
+  offset,
+  search,
+  year,
+  countOnly = false,
+}) {
+  /** @type {string | null} */
+  let keyword = null;
+  /** @type {string | null} */
+  let startDate = null;
+  /** @type {string | null} */
+  let endDate = null;
+  if (year) {
+    const dt = new Date(year, 0, 1, 0, 0, 0, 0);
+    startDate = dt.toISOString();
+    dt.setMonth(11, 31)
+    dt.setHours(11, 59, 59, 999);
+    endDate = dt.toISOString();
+  }
+  if (search) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(search)) {
+      const dt = new Date();
+      const [strYear, strMonth, strDay] = search.split('-');
+      const year = safeParseInt(strYear);
+      const month = safeParseInt(strMonth);
+      const day = safeParseInt(strDay);
+      if (!year || !month || !day) throw new Error('Invalid date');
+      dt.setFullYear(year, month - 1, day);
+      dt.setHours(0, 0, 0, 0);
+      startDate = dt.toISOString();
+      dt.setHours(23, 59, 59, 999);
+      endDate = dt.toISOString();
+    } else {
+      keyword = '%' + search + '%';
+    }
+  }
+  const query = db.prepare(`SELECT ${countOnly ?
+    'COUNT(1) as row_count' : '*'
+  } FROM orders WHERE cancelled = :cancelled${!!keyword ?
+    " AND (number LIKE :keyword OR asin LIKE :keyword OR product LIKE :keyword)" : ""
+  }${!!startDate ?
+    " AND orderedAt >= :startDate" : ""
+  }${!!endDate ?
+    " AND orderedAt <= :endDate" : ""
+  }${nonAdjustedOnly ?
+    " AND etv != 0.0 AND (etvFactor IS NULL OR (etvFactor IS NOT NULL AND etvFactor != 0.2 AND etvReason IS NULL))" : ""
+  } ORDER BY orderedAt ASC${typeof limit === 'number' ?
+    " LIMIT :limit" : ""
+  }${typeof offset === 'number' ?
+    " OFFSET :offset" : ""
+  }`);
+
+  const variables = onlyDefined({
+    cancelled: cancelled ? 1 : 0,
+    keyword: keyword,
+    startDate: startDate,
+    endDate: endDate,
+    limit: limit,
+    offset: offset
+  });
+
+  if (countOnly) {
+    const result = query.get(variables);
+    return result?.row_count ?? 0;
+  }
+
+  const orders = query.all(variables);
   return orders.map(toOrder);
+}
+
+/**
+ * Return an object that only contains the keys of input that were defined
+ * @param {Record<string, NonNullable<any> | undefined | null>} input 
+ * @returns {Record<string, NonNullable<any>>}
+ */
+function onlyDefined(input) {
+  return Object.fromEntries(Object.entries(input).filter(([key, value]) => value !== undefined && value !== null));
 }
 
 /**
@@ -421,4 +539,30 @@ function toOrder(row) {
     cancelled: row.cancelled === 1,
     etvReason: row.etvReason
   };
+}
+
+/**
+ * Parse an int from a query string value, or return undefined
+ * @param {string | qs.ParsedQs | (string | qs.ParsedQs)[] | undefined} value The query string value to parse
+ * @returns {number | undefined} The parsed integer, or undefined
+ */
+function safeParseInt(value) {
+  if (!value) return undefined;
+  if (Array.isArray(value)) return undefined;
+  if (typeof value !== 'string') return undefined;
+  const num = parseInt(value, 10);
+  if (Number.isNaN(num)) return undefined;
+  return num;
+}
+
+/**
+ * Parse a single string from a query string value, or return undefined
+ * @param {string | qs.ParsedQs | (string | qs.ParsedQs)[] | undefined} value The value to parse
+ * @returns {string | undefined} The string value or undefined
+ */
+function safeQsString(value) {
+  if (!value) return undefined;
+  if (Array.isArray(value)) return undefined;
+  if (typeof value !== 'string') return undefined;
+  return value;
 }

@@ -181,11 +181,17 @@
       grid = new gridjs.Grid({
         fixedHeader: true,
         pagination: {
-          resetPageOnUpdate: false
+          resetPageOnUpdate: false,
+          server: {
+            url: (prev, page, limit) => `${prev}limit=${limit}&offset=${page * limit}&`
+          }
         },
         search: {
           selector: (cell, rowIndex, cellIndex) => cellIndex === 5 ? cell === null ? 'not-adjusted' : cell : cell,
           keyword: initialSearch ?? undefined,
+          server: {
+            url: (prev, keyword) => `${prev}s=${keyword}&`
+          }
         },
         columns: [
           {
@@ -260,11 +266,10 @@
           }
         ],
         server: {
-          url: '{{ ingress }}/orders' + (selectedFilter === 'cancelled' ? '?cancelled=true' : ''),
+          url: `{{ ingress }}/orders?filter=${selectedFilter}&`,
+          total: data => data.total,
           then: data => {
-            const orders = selectedFilter === 'adjusted' ? data.orders.filter(order => order.etv !== 0 && (order.etvFactor === null || (
-              order.etvFactor !== null && order.etvFactor !== 0.2 && order.etvReason === null))) : data.orders;
-            return orders.map(order => [
+            return data.orders.map(order => [
               order.number,
               order.asin,
               order.product,
