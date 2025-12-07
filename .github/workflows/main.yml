@@ -20,7 +20,7 @@ jobs:
         uses: home-assistant/builder@master
         with:
           args: |
-            --all \
+            --aarch64 \
             --target vinetracker \
             --image "image-{arch}-homeassistant-addon-vinetracker" \
             --docker-hub decompil3d
