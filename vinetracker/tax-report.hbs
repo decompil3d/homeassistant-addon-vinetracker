@@ -36,6 +36,12 @@
       #report-content {
         padding: 0 !important;
       }
+      #report-content table {
+        break-inside: auto;
+      }
+      #report-content tr {
+        break-inside: avoid;
+      }
     }
   </style>
 </head>
@@ -97,11 +103,7 @@
               <td>{{currency etv}}</td>
               <td>{{multiply etv etvFactor}}</td>
               <td>
-                {{#if etvReason}}
                 {{etvReason}}
-                {{else}}
-                Thrift shop value
-                {{/if}}
               </td>
             </tr>
             {{/each}}

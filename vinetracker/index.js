@@ -118,7 +118,11 @@ app.get('/tax-report{/:year}', (req, res) => {
   if (isNaN(year) || year < 2000 || year > 3000) {
     const error = `Invalid year '${strYear}'`;
   }
-  const orders = getOrders({ year, cancelled: false });
+  const rawOrders = getOrders({ year, cancelled: false });
+  const orders = rawOrders.map(o => ({
+    ...o,
+    etvReason: o.etvReason ?? (o.etvFactor === 0.2 ? 'Thrift shop value' : null)
+  }));
 
   res.send(taxReportTemplate({ ingress: req.get('x-ingress-path') || '', orders, year }));
 });
