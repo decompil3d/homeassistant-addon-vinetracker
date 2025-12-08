@@ -21,14 +21,20 @@
       display: none;
     }
     @media print {
+      body {
+        padding: 0 !important;
+      }
       nav {
         display: none !important;
       }
-      .year-selector {
+      .toolbar {
         display: none !important;
       }
       .title {
         display: block !important;
+      }
+      #report-content {
+        padding: 0 !important;
       }
     }
   </style>
@@ -55,9 +61,15 @@
       </div>
     </nav>
     <main id="main">
-      <div class="container-fluid mb-3 year-selector">
-        <select id="year" class="form-select" style="max-width: 200px; margin-bottom: 10px;">
-        </select>
+      <div class="container-fluid mb-3 toolbar">
+        <div class="row">
+          <div class="col-auto me-auto">
+            <select id="year" class="form-select" style="max-width: 200px; margin-bottom: 10px;"></select>
+          </div>
+          <div class="col-auto">
+            <button class="btn btn-primary" onclick="printFrame()">Print</button>
+          </div>
+        </div>
       </div>
       <h1 class="title">Vine order report for {{year}}</h1>
       <div id="report-content" class="container-fluid">
@@ -112,6 +124,9 @@
             document.location.href = `{{ ingress }}/tax-report/${selectedYear}`;
           }
         });
+        function printFrame() {
+          document.defaultView.print();
+        }
       </script>
     </main>
   </body>
