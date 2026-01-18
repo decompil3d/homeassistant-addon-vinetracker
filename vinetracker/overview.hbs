@@ -54,6 +54,7 @@
           const option = document.createElement('option');
           option.value = year;
           option.textContent = year;
+          option.selected = year === cur;
           yearSelect.appendChild(option);
         }
         yearSelect.addEventListener('change', () => {
