@@ -1,6 +1,6 @@
 slug: vinetracker
 name: VineTracker
-version: 1.6.2
+version: 1.6.3
 url: https://github.com/decompil3d/homeassistant-addon-vinetracker
 stage: experimental
 description:
