@@ -445,24 +445,9 @@ function getOrders({
   if (!countOnly && sort && ['etv', 'etvFactor', 'adjustedEtv'].includes(sort)) {
     sortCol = sort;
   }
-  const sortDir = dir === 'asc' || countOnly ? 'ASC' : 'DESC';
-  console.log('🙂', `SELECT ${countOnly ?
-    'COUNT(1) as row_count' : '*, etv * etvFactor AS adjustedEtv'
-  } FROM orders WHERE cancelled = :cancelled${!!keyword ?
-    " AND (number LIKE :keyword OR asin LIKE :keyword OR product LIKE :keyword)" : ""
-  }${!!startDate ?
-    " AND orderedAt >= :startDate" : ""
-  }${!!endDate ?
-    " AND orderedAt <= :endDate" : ""
-  }${nonAdjustedOnly ?
-    " AND etv != 0.0 AND (etvFactor IS NULL OR (etvFactor IS NOT NULL AND etvFactor != 0.2 AND etvReason IS NULL))" : ""
-  } ORDER BY ${sortCol} ${sortDir}${typeof limit === 'number' ?
-    " LIMIT :limit" : ""
-  }${typeof offset === 'number' ?
-    " OFFSET :offset" : ""
-  }`);
+  const sortDir = countOnly ? 'ASC' : (dir === 'desc' ? 'DESC' : 'ASC');
   const query = db.prepare(`SELECT ${countOnly ?
-    'COUNT(1) as row_count' : '*, etv * etvFactor AS adjustedEtv'
+    'COUNT(1) as row_count' : '*, etv * COALESCE(etvFactor, 0) AS adjustedEtv'
   } FROM orders WHERE cancelled = :cancelled${!!keyword ?
     " AND (number LIKE :keyword OR asin LIKE :keyword OR product LIKE :keyword)" : ""
   }${!!startDate ?
@@ -470,8 +455,8 @@ function getOrders({
   }${!!endDate ?
     " AND orderedAt <= :endDate" : ""
   }${nonAdjustedOnly ?
-    " AND etv != 0.0 AND (etvFactor IS NULL OR (etvFactor IS NOT NULL AND etvFactor != 0.2 AND etvReason IS NULL))" : ""
-  } ORDER BY ${sortCol} ${sortDir}${typeof limit === 'number' ?
+    " AND etv != 0.0 AND (etvFactor IS NULL OR (etvFactor IS NOT NULL AND etvFactor != 0.2 AND etvFactor != 1 AND etvReason IS NULL))" : ""
+  } ORDER BY :sort${typeof limit === 'number' ?
     " LIMIT :limit" : ""
   }${typeof offset === 'number' ?
     " OFFSET :offset" : ""
@@ -483,7 +468,8 @@ function getOrders({
     startDate: startDate,
     endDate: endDate,
     limit: limit,
-    offset: offset
+    offset: offset,
+    sort: `${sortCol} ${sortDir}`
   });
 
   if (countOnly) {
