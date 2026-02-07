@@ -134,7 +134,9 @@ app.get('/orders', async (req, res) => {
       nonAdjustedOnly: req.query['filter'] === 'adjusted',
       limit: safeParseInt(req.query['limit']),
       offset: safeParseInt(req.query['offset']),
-      search: safeQsString(req.query['s'])
+      search: safeQsString(req.query['s']),
+      sort: safeQsString(req.query['sort']),
+      dir: safeQsString(req.query['dir']),
     };
     const total = getOrders({
       ...variables,
@@ -372,6 +374,8 @@ app.listen(8099, () => {
  * @prop {number} [offset] How many orders to offset by
  * @prop {string} [search] A keyword to search for, looks at product name, asin, order number, and order date
  * @prop {number} [year] Whether to limit results to just those ordered in a certain year
+ * @prop {string} [sort] Column to sort by
+ * @prop {string} [dir] Direction to sort
  */
 /**
  * @typedef {object} GetOrdersOptionsRows
@@ -404,6 +408,8 @@ function getOrders({
   search,
   year,
   countOnly = false,
+  sort,
+  dir
 }) {
   /** @type {string | null} */
   let keyword = null;
@@ -435,8 +441,13 @@ function getOrders({
       keyword = '%' + search + '%';
     }
   }
-  const query = db.prepare(`SELECT ${countOnly ?
-    'COUNT(1) as row_count' : '*'
+  let sortCol = 'orderedAt';
+  if (!countOnly && sort && ['etv', 'etvFactor', 'adjustedEtv'].includes(sort)) {
+    sortCol = sort;
+  }
+  const sortDir = dir === 'asc' || countOnly ? 'ASC' : 'DESC';
+  console.log('🙂', `SELECT ${countOnly ?
+    'COUNT(1) as row_count' : '*, etv * etvFactor AS adjustedEtv'
   } FROM orders WHERE cancelled = :cancelled${!!keyword ?
     " AND (number LIKE :keyword OR asin LIKE :keyword OR product LIKE :keyword)" : ""
   }${!!startDate ?
@@ -445,7 +456,22 @@ function getOrders({
     " AND orderedAt <= :endDate" : ""
   }${nonAdjustedOnly ?
     " AND etv != 0.0 AND (etvFactor IS NULL OR (etvFactor IS NOT NULL AND etvFactor != 0.2 AND etvReason IS NULL))" : ""
-  } ORDER BY orderedAt ASC${typeof limit === 'number' ?
+  } ORDER BY ${sortCol} ${sortDir}${typeof limit === 'number' ?
+    " LIMIT :limit" : ""
+  }${typeof offset === 'number' ?
+    " OFFSET :offset" : ""
+  }`);
+  const query = db.prepare(`SELECT ${countOnly ?
+    'COUNT(1) as row_count' : '*, etv * etvFactor AS adjustedEtv'
+  } FROM orders WHERE cancelled = :cancelled${!!keyword ?
+    " AND (number LIKE :keyword OR asin LIKE :keyword OR product LIKE :keyword)" : ""
+  }${!!startDate ?
+    " AND orderedAt >= :startDate" : ""
+  }${!!endDate ?
+    " AND orderedAt <= :endDate" : ""
+  }${nonAdjustedOnly ?
+    " AND etv != 0.0 AND (etvFactor IS NULL OR (etvFactor IS NOT NULL AND etvFactor != 0.2 AND etvReason IS NULL))" : ""
+  } ORDER BY ${sortCol} ${sortDir}${typeof limit === 'number' ?
     " LIMIT :limit" : ""
   }${typeof offset === 'number' ?
     " OFFSET :offset" : ""
