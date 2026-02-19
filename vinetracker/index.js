@@ -445,7 +445,7 @@ function getOrders({
   if (!countOnly && sort && ['etv', 'etvFactor', 'adjustedEtv'].includes(sort)) {
     sortCol = sort;
   }
-  const sortDir = countOnly ? 'ASC' : (dir === 'desc' ? 'DESC' : 'ASC');
+  const sortDir = countOnly ? 'ASC' : (dir === 'asc' ? 'ASC' : 'DESC');
   const query = db.prepare(`SELECT ${countOnly ?
     'COUNT(1) as row_count' : '*, etv * COALESCE(etvFactor, 0) AS adjustedEtv'
   } FROM orders WHERE cancelled = :cancelled${!!keyword ?
