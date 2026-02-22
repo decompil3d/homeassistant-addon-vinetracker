@@ -118,7 +118,7 @@ app.get('/tax-report{/:year}', (req, res) => {
   if (isNaN(year) || year < 2000 || year > 3000) {
     const error = `Invalid year '${strYear}'`;
   }
-  const rawOrders = getOrders({ year, cancelled: false });
+  const rawOrders = getOrders({ year, cancelled: false, byDelivered: true });
   const orders = rawOrders.map(o => ({
     ...o,
     etvReason: o.etvReason ?? (o.etvFactor === 0.2 ? 'Thrift shop value' : null)
@@ -159,7 +159,7 @@ app.get('/report-data/:year', async (req, res) => {
   if (isNaN(year) || year < 2000 || year > 3000) {
     const error = `Invalid year '${strYear}'`;
   }
-  const ordersForYear = getOrders({ year, cancelled: false });
+  const ordersForYear = getOrders({ year, cancelled: false, byDelivered: true });
   const totalEtv = ordersForYear.reduce((sum, o) => sum + o.etv, 0);
   const totalAdjustedEtv = ordersForYear.reduce((sum, o) => sum + (o.etvFactor !== null ? o.etv * o.etvFactor : o.etv), 0);
   
@@ -377,6 +377,7 @@ app.listen(8099, () => {
  * @prop {number} [year] Whether to limit results to just those ordered in a certain year
  * @prop {string} [sort] Column to sort by
  * @prop {string} [dir] Direction to sort
+ * @prop {boolean} [byDelivered=false] Whether to use the delivered date for filtering by year, rather than order date
  */
 /**
  * @typedef {object} GetOrdersOptionsRows
@@ -410,7 +411,8 @@ function getOrders({
   year,
   countOnly = false,
   sort,
-  dir
+  dir,
+  byDelivered = false,
 }) {
   /** @type {string | null} */
   let keyword = null;
@@ -452,9 +454,9 @@ function getOrders({
   } FROM orders WHERE cancelled = :cancelled${!!keyword ?
     " AND (number LIKE :keyword OR asin LIKE :keyword OR product LIKE :keyword)" : ""
   }${!!startDate ?
-    " AND orderedAt >= :startDate" : ""
+    ` AND ${byDelivered ? 'deliveredAt' : 'orderedAt'} >= :startDate` : ""
   }${!!endDate ?
-    " AND orderedAt <= :endDate" : ""
+    ` AND ${byDelivered ? 'deliveredAt' : 'orderedAt'} <= :endDate` : ""
   }${nonAdjustedOnly ?
     " AND etv != 0.0 AND (etvFactor IS NULL OR (etvFactor IS NOT NULL AND etvFactor != 0.2 AND etvFactor != 1 AND etvReason IS NULL))" : ""
   } ORDER BY ${sortCol} ${sortDir}${typeof limit === 'number' ?
