@@ -306,6 +306,7 @@ app.post('/upload', fileUpload(), async (req, res) => {
     const { number, asin, product, type, orderedAtStr, deliveredAtStr, etvStr, etvFactor } = line;
     if (type === 'CANCELLATION') {
       cancellations.push(number);
+      continue;
     }
     maybeInsertOrder({
       number,
