@@ -21,6 +21,12 @@
   </style>
 </head>
 <body class="container-fluid bg-light" style="padding-top: 70px;">
+  <script>
+    function downloadJSON() {
+      event.preventDefault();
+      window.location.replace("{{ ingress }}/json/" + window.selectedYear);
+    }
+  </script>
   <nav class="navbar fixed-top navbar-expand-lg bg-info">
     <div class="container-fluid">
       <a class="navbar-brand" href="{{ ingress }}/">Vine Tracker</a>
@@ -45,6 +51,7 @@
       <div class="container-fluid mb-3">
         <select id="year" class="form-select" style="max-width: 200px; margin-bottom: 10px;">
         </select>
+        <a href="#" onclick="downloadJSON()">Download</a>
       </div>
       <div id="report-content" class="container-fluid"></div>
       <script>
@@ -58,9 +65,10 @@
           yearSelect.appendChild(option);
         }
         yearSelect.addEventListener('change', () => {
-          year = parseInt(yearSelect.value);
+          window.selectedYear = year = parseInt(yearSelect.value);
           loadReport(year);
         });
+        window.selectedYear = year - 1;
         loadReport(year - 1);
 
         const months = [

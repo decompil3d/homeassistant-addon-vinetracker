@@ -153,6 +153,26 @@ app.get('/orders', async (req, res) => {
     return;
   }
 });
+app.get('/json/:year', async (req, res) => {
+  try {
+    const strYear = req.params.year;
+    const year = parseInt(strYear);
+    if (isNaN(year) || year < 2000 || year > 3000) {
+      const error = `Invalid year '${strYear}'`;
+    }
+    const orders = getOrders({
+      year,
+      cancelled: false,
+    });
+    res.set('Content-Disposition', `attachment; filename="orders-${year}.json"`);
+    res.json(orders);
+  } catch (err) {
+    const msg = typeof err === 'object' && err && 'message' in err && err.message;
+    console.error(msg);
+    res.status(500).json({ error: msg });
+    return;
+  }
+});
 app.get('/report-data/:year', async (req, res) => {
   const strYear = req.params.year;
   const year = parseInt(strYear);
