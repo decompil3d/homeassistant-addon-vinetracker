@@ -163,6 +163,7 @@ app.get('/json/:year', async (req, res) => {
     const orders = getOrders({
       year,
       cancelled: false,
+      byDelivered: true
     });
     res.set('Content-Disposition', `attachment; filename="orders-${year}.json"`);
     res.json(orders);
@@ -517,8 +518,10 @@ function onlyDefined(input) {
  * @param {Order} order
  */
 function maybeInsertOrder(order) {
-  const stmt = db.prepare(`INSERT OR IGNORE INTO orders (number, asin, product, orderedAt, deliveredAt, etv, etvFactor, cancelled, etvReason)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL)`);
+  const stmt = db.prepare(`INSERT INTO orders (number, asin, product, orderedAt, deliveredAt, etv, etvFactor, cancelled, etvReason)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL)
+    ON CONFLICT(number) DO UPDATE SET
+      etv = excluded.etv, deliveredAt = excluded.deliveredAt`);
   stmt.run(order.number,
     order.asin,
     order.product,

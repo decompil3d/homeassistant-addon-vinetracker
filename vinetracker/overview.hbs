@@ -49,9 +49,11 @@
     </nav>
     <main id="main">
       <div class="container-fluid mb-3">
-        <select id="year" class="form-select" style="max-width: 200px; margin-bottom: 10px;">
-        </select>
-        <a href="#" onclick="downloadJSON()">Download</a>
+        <div class="hstack gap-3 align-middle mb-5">
+          <select id="year" class="form-select" style="max-width: 200px">
+          </select>
+          <a href="#" onclick="downloadJSON()">Download</a>
+        </div>
       </div>
       <div id="report-content" class="container-fluid"></div>
       <script>
