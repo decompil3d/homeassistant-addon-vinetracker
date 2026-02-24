@@ -118,13 +118,27 @@ app.get('/tax-report{/:year}', (req, res) => {
   if (isNaN(year) || year < 2000 || year > 3000) {
     const error = `Invalid year '${strYear}'`;
   }
-  const rawOrders = getOrders({ year, cancelled: false, byDelivered: true });
-  const orders = rawOrders.map(o => ({
+  const rawOrders = getOrders({ year, cancelled: false, byDelivered: true, dir: 'asc' });
+  const allOrders = rawOrders.map(o => ({
     ...o,
     etvReason: o.etvReason ?? (o.etvFactor === 0.2 ? 'Thrift shop value' : null)
   }));
 
-  res.send(taxReportTemplate({ ingress: req.get('x-ingress-path') || '', orders, year }));
+  const orders = Object.groupBy(allOrders, ({ etvReason }) =>
+    etvReason && ['Damaged/defective', 'Disposed of', 'Did not receive'].includes(etvReason) ? 'bad' : 'adjusted');
+
+  const badTotalAdjustmentRaw = orders.bad?.reduce((acc, o) => acc + (o.etv - (o.etv * (o.etvFactor ?? 1))), 0);
+  const otherTotalAdjustmentRaw = orders.adjusted?.reduce((acc, o) => acc + (o.etv - (o.etv * (o.etvFactor ?? 1))), 0);
+
+  const currencyFormatter = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  });
+
+  const badTotalAdjustment = currencyFormatter.format(badTotalAdjustmentRaw ?? 0);
+  const otherTotalAdjustment = currencyFormatter.format(otherTotalAdjustmentRaw ?? 0);
+
+  res.send(taxReportTemplate({ ingress: req.get('x-ingress-path') || '', orders, year, badTotalAdjustment, otherTotalAdjustment }));
 });
 app.get('/orders', async (req, res) => {
   try {

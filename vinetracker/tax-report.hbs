@@ -79,6 +79,40 @@
       </div>
       <h1 class="title">Vine order report for {{year}}</h1>
       <div id="report-content" class="container-fluid">
+        <h2 class="h4">Damaged/defective/disposed orders</h2>
+        <p>Adjustment: {{ badTotalAdjustment }}</p>
+        <table class="table mb-5">
+          <thead>
+            <tr>
+              <th scope="col">Date/Order number</th>
+              <th scope="col">Product</th>
+              <th scope="col">Original ETV</th>
+              <th scope="col">Adjusted ETV</th>
+              <th scope="col">Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each orders.bad}}
+            <tr>
+              <td>
+                <p class="fw-semibold text-secondary mb-0">{{date orderedAt}}</p>
+                <p class="text-nowrap">{{number}}</p>
+              </td>
+              <td>
+                <p class="fw-semibold text-secondary mb-0">{{asin}}</p>
+                <p>{{product}}</p>
+              </td>
+              <td>{{currency etv}}</td>
+              <td>{{multiply etv etvFactor}}</td>
+              <td>
+                {{etvReason}}
+              </td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+        <h2 class="h4">Other orders</h2>
+        <p>Adjustment: {{ otherTotalAdjustment }}</p>
         <table class="table">
           <thead>
             <tr>
@@ -90,7 +124,7 @@
             </tr>
           </thead>
           <tbody>
-            {{#each orders}}
+            {{#each orders.adjusted}}
             <tr>
               <td>
                 <p class="fw-semibold text-secondary mb-0">{{date orderedAt}}</p>
