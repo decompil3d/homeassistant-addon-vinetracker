@@ -123,7 +123,9 @@ app.get('/tax-report{/:year}', (req, res) => {
   const rawOrders = getOrders({ year, byDelivered: true, dir: 'asc' });
   const allOrders = rawOrders.map(o => ({
     ...o,
-    etvReason: o.etvReason ?? (o.etvFactor === 0.2 ? 'Thrift shop value' : undefined)
+    etvReason: o.etvReason === 'Brand name'
+      ? 'Thrift shop value'
+      : o.etvReason ?? (o.etvFactor === 0.2 ? 'Thrift shop value' : undefined)
   }));
 
   const ordersForYear = allOrders.filter(o => (!o.cancelledAt || o.cancelledAt.getFullYear() !== year) &&
