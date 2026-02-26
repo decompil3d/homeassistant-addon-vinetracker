@@ -13,10 +13,12 @@ const fs = require('node:fs');
 const { DatabaseSync } = require('node:sqlite')
 
 const express = require('express');
+const fileUpload = require('express-fileupload');
 const Handlebars = require('handlebars');
 const morgan = require('morgan');
 const path = require('path');
-const fileUpload = require('express-fileupload');
+
+const { migrate } = require('./migrate');
 const { xlsxParse } = require('./xlsx');
 
 const shortDateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -118,14 +120,21 @@ app.get('/tax-report{/:year}', (req, res) => {
   if (isNaN(year) || year < 2000 || year > 3000) {
     const error = `Invalid year '${strYear}'`;
   }
-  const rawOrders = getOrders({ year, cancelled: false, byDelivered: true, dir: 'asc' });
+  const rawOrders = getOrders({ year, byDelivered: true, dir: 'asc' });
   const allOrders = rawOrders.map(o => ({
     ...o,
-    etvReason: o.etvReason ?? (o.etvFactor === 0.2 ? 'Thrift shop value' : null)
+    etvReason: o.etvReason ?? (o.etvFactor === 0.2 ? 'Thrift shop value' : undefined)
   }));
 
-  const orders = Object.groupBy(allOrders, ({ etvReason }) =>
+  const ordersForYear = allOrders.filter(o => (!o.cancelledAt || o.cancelledAt.getFullYear() !== year) &&
+    ((!o.deliveredAt && o.orderedAt.getFullYear() === year) || o.deliveredAt?.getFullYear() === year));
+  const cancellationsFromPriorYear = allOrders.filter(o => (o.deliveredAt ? o.deliveredAt.getFullYear() < year : o.orderedAt.getFullYear() < year) && o.cancelledAt?.getFullYear() === year);
+
+  /** @typedef {'bad' | 'adjusted' | 'cancelPrior'} Groups */
+  /** @type {Partial<Record<Groups, Order[]>>} */
+  const orders = Object.groupBy(ordersForYear, ({ etvReason }) =>
     etvReason && ['Damaged/defective', 'Disposed of', 'Did not receive'].includes(etvReason) ? 'bad' : 'adjusted');
+  orders.cancelPrior = cancellationsFromPriorYear;
 
   const badTotalAdjustmentRaw = orders.bad?.reduce((acc, o) => acc + (o.etv - (o.etv * (o.etvFactor ?? 1))), 0);
   const otherTotalAdjustmentRaw = orders.adjusted?.reduce((acc, o) => acc + (o.etv - (o.etv * (o.etvFactor ?? 1))), 0);
@@ -176,7 +185,6 @@ app.get('/json/:year', async (req, res) => {
     }
     const orders = getOrders({
       year,
-      cancelled: false,
       byDelivered: true
     });
     res.set('Content-Disposition', `attachment; filename="orders-${year}.json"`);
@@ -194,9 +202,13 @@ app.get('/report-data/:year', async (req, res) => {
   if (isNaN(year) || year < 2000 || year > 3000) {
     const error = `Invalid year '${strYear}'`;
   }
-  const ordersForYear = getOrders({ year, cancelled: false, byDelivered: true });
-  const totalEtv = ordersForYear.reduce((sum, o) => sum + o.etv, 0);
-  const totalAdjustedEtv = ordersForYear.reduce((sum, o) => sum + (o.etvFactor !== null ? o.etv * o.etvFactor : o.etv), 0);
+  const allOrdersForYear = getOrders({ year, byDelivered: true });
+  const ordersForYear = allOrdersForYear.filter(o => (!o.cancelledAt || o.cancelledAt.getFullYear() !== year) &&
+    ((!o.deliveredAt && o.orderedAt.getFullYear() === year) || o.deliveredAt?.getFullYear() === year));
+  const cancellationsFromPriorYear = allOrdersForYear.filter(o => (o.deliveredAt ? o.deliveredAt.getFullYear() < year : o.orderedAt.getFullYear() < year) && o.cancelledAt?.getFullYear() === year);
+  const cancellationsFromPriorYearTotalEtvNegative = cancellationsFromPriorYear.reduce((sum, o) => sum - o.etv, 0);
+  const totalEtv = ordersForYear.reduce((sum, o) => sum + o.etv, 0) + cancellationsFromPriorYearTotalEtvNegative;
+  const totalAdjustedEtv = ordersForYear.reduce((sum, o) => sum + (o.etvFactor !== null ? o.etv * o.etvFactor : o.etv), 0) + cancellationsFromPriorYearTotalEtvNegative;
   
   /** @type {Map<string, number>} */
   const initialCount = new Map();
@@ -335,12 +347,13 @@ app.post('/upload', fileUpload(), async (req, res) => {
   const lines = await xlsxParse(req.files.file.data);
   let inserted = 0;
   let failed = 0;
-  const cancellations = [];
+  /** @type {Map<string, Date>} */
+  const cancellations = new Map();
   for (const line of lines) {
     if (!line) return;
-    const { number, asin, product, type, orderedAtStr, deliveredAtStr, etvStr, etvFactor } = line;
-    if (type === 'CANCELLATION') {
-      cancellations.push(number);
+    const { number, asin, product, type, orderedAtStr, deliveredAtStr, cancelledDateStr, etvStr, etvFactor } = line;
+    if (type === 'CANCELLATION' && cancelledDateStr) {
+      cancellations.set(number, new Date(cancelledDateStr));
       continue;
     }
     maybeInsertOrder({
@@ -356,13 +369,16 @@ app.post('/upload', fileUpload(), async (req, res) => {
   }
 
   // Handle cancellations
-  for (const number of cancellations) {
-    const stmt = db.prepare(`UPDATE orders SET cancelled = 1 WHERE number = ?`);
-    stmt.run(number);
+  for (const [number, cancelledAt] of cancellations) {
+    const stmt = db.prepare(`UPDATE orders SET cancelledAt = :cancelledAt WHERE number = :number`);
+    stmt.run({
+      cancelledAt: cancelledAt.toISOString(),
+      number
+    });
   }
 
-  console.log(`Upload complete. Inserted: ${inserted}, Failed: ${failed}, Cancellations: ${cancellations.length}`);
-  res.json({ inserted, failed, cancellations: cancellations.length });
+  console.log(`Upload complete. Inserted: ${inserted}, Failed: ${failed}, Cancellations: ${cancellations.size}`);
+  res.json({ inserted, failed, cancellations: cancellations.size });
 });
 
 console.log('Starting VineTracker addon...');
@@ -386,6 +402,9 @@ app.listen(8099, () => {
     etvReason TEXT,
     notes TEXT
   )`);
+  // cancelled replaced with cancelledAt in DB schema v2
+
+  migrate(db);
 });
 
 /**
@@ -397,14 +416,14 @@ app.listen(8099, () => {
  * @prop {Date} [deliveredAt] Date the order was delivered
  * @prop {number} etv Original ETV
  * @prop {number | null} etvFactor Residual percent of ETV at transfer to personal use
- * @prop {boolean} [cancelled] Whether the order was cancelled
+ * @prop {Date} [cancelledAt] When the order was cancelled, otherwise undefined
  * @prop {string} [etvReason] Reason for ETV adjustment
  * @prop {string} [notes] Additional notes
  */
 
 /**
  * @typedef {object} GetOrdersOptions
- * @prop {boolean} [cancelled=false] Whether to fetch only cancelled orders (true), or only not-cancelled (false)
+ * @prop {boolean} [cancelled] Whether to fetch only cancelled orders (true), or only not-cancelled (false), or all (undefined)
  * @prop {boolean} [nonAdjustedOnly=false] Whether to fetch only non-adjusted orders (true), or all (false)
  * @prop {number} [limit] The max number of orders to retrieve, defaults to all orders
  * @prop {number} [offset] How many orders to offset by
@@ -438,7 +457,7 @@ app.listen(8099, () => {
  * @param {GetOrdersOptions & (GetOrdersOptionsRows | GetOrdersOptionsCount)} options
  */
 function getOrders({
-  cancelled = false,
+  cancelled,
   nonAdjustedOnly = false,
   limit,
   offset,
@@ -484,24 +503,24 @@ function getOrders({
     sortCol = sort;
   }
   const sortDir = countOnly ? 'ASC' : (dir === 'asc' ? 'ASC' : 'DESC');
-  const query = db.prepare(`SELECT ${countOnly ?
+  const statement = `SELECT ${countOnly ?
     'COUNT(1) as row_count' : '*, etv * COALESCE(etvFactor, 0) AS adjustedEtv'
-  } FROM orders WHERE cancelled = :cancelled${!!keyword ?
+  } FROM orders WHERE 1${typeof cancelled !== 'undefined' ? ` AND cancelledAt ${cancelled ? 'IS NOT NULL' : 'IS NULL'}` : ""}${!!keyword ?
     " AND (number LIKE :keyword OR asin LIKE :keyword OR product LIKE :keyword)" : ""
   }${!!startDate ?
-    ` AND ${byDelivered ? 'deliveredAt' : 'orderedAt'} >= :startDate` : ""
+    ` AND (${byDelivered ? 'deliveredAt' : 'orderedAt'} >= :startDate OR cancelledAt >= :startDate)` : ""
   }${!!endDate ?
-    ` AND ${byDelivered ? 'deliveredAt' : 'orderedAt'} <= :endDate` : ""
+    ` AND (${byDelivered ? 'deliveredAt' : 'orderedAt'} <= :endDate OR cancelledAt <= :endDate)` : ""
   }${nonAdjustedOnly ?
     " AND etv != 0.0 AND (etvFactor IS NULL OR (etvFactor IS NOT NULL AND etvFactor != 0.2 AND etvFactor != 1 AND etvReason IS NULL))" : ""
   } ORDER BY ${sortCol} ${sortDir}${typeof limit === 'number' ?
     " LIMIT :limit" : ""
   }${typeof offset === 'number' ?
     " OFFSET :offset" : ""
-  }`);
+  }`;
+  const query = db.prepare(statement);
 
   const variables = onlyDefined({
-    cancelled: cancelled ? 1 : 0,
     keyword: keyword,
     startDate: startDate,
     endDate: endDate,
@@ -532,8 +551,8 @@ function onlyDefined(input) {
  * @param {Order} order
  */
 function maybeInsertOrder(order) {
-  const stmt = db.prepare(`INSERT INTO orders (number, asin, product, orderedAt, deliveredAt, etv, etvFactor, cancelled, etvReason)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL)
+  const stmt = db.prepare(`INSERT INTO orders (number, asin, product, orderedAt, deliveredAt, etv, etvFactor, cancelledAt, etvReason)
+    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL)
     ON CONFLICT(number) DO UPDATE SET
       etv = excluded.etv, deliveredAt = excluded.deliveredAt`);
   stmt.run(order.number,
@@ -588,10 +607,11 @@ function toOrder(row) {
     asin: row.asin,
     product: row.product,
     orderedAt: new Date(row.orderedAt),
-    deliveredAt: new Date(row.deliveredAt),
+    // deliveredAt actually tracks ship date, not delivery date
+    deliveredAt: row.deliveredAt ? new Date(row.deliveredAt) : undefined,
     etv: row.etv,
     etvFactor: row.etvFactor,
-    cancelled: row.cancelled === 1,
+    cancelledAt: row.cancelledAt ? new Date(row.cancelledAt) : undefined,
     etvReason: row.etvReason
   };
 }
