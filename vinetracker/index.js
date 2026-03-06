@@ -204,7 +204,7 @@ app.get('/report-data/:year', async (req, res) => {
   if (isNaN(year) || year < 2000 || year > 3000) {
     const error = `Invalid year '${strYear}'`;
   }
-  const allOrdersForYear = getOrders({ year, byDelivered: true });
+  const allOrdersForYear = getOrders({ year, byDelivered: true, dir: 'asc' });
   const ordersForYear = allOrdersForYear.filter(o => (!o.cancelledAt || o.cancelledAt.getFullYear() !== year) &&
     ((!o.deliveredAt && o.orderedAt.getFullYear() === year) || o.deliveredAt?.getFullYear() === year));
   const cancellationsFromPriorYear = allOrdersForYear.filter(o => (o.deliveredAt ? o.deliveredAt.getFullYear() < year : o.orderedAt.getFullYear() < year) && o.cancelledAt?.getFullYear() === year);
