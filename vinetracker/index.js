@@ -386,6 +386,7 @@ app.post('/upload', fileUpload(), async (req, res) => {
 console.log('Starting VineTracker addon...');
 app.listen(8099, () => {
   console.log('VineTracker addon is running on port 8099');
+  console.log('Visit http://localhost:8099');
 
   Graceful.on('exit', function () {
     db.close();
