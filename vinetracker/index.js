@@ -223,14 +223,14 @@ app.get('/report-data/:year', async (req, res) => {
     orderCount: ordersForYear.length,
     monthly: getMonthlyBreakdown(ordersForYear),
     orderCountByDate: Object.fromEntries(ordersForYear.reduce((acc, o) => {
-      const key = o.orderedAt.toISOString().split('T')[0];
+      const key = getDateString(o.orderedAt);
       const count = acc.get(key) ?? 0;
       acc.set(key, count + 1);
       
       return acc;
     }, initialCount).entries()),
     orderETVByDate: Object.fromEntries(ordersForYear.reduce((acc, o) => {
-      const key = o.orderedAt.toISOString().split('T')[0];
+      const key = getDateString(o.orderedAt);
       const prev = acc.get(key) ?? 0;
       acc.set(key, prev + o.etv);
       
@@ -238,6 +238,18 @@ app.get('/report-data/:year', async (req, res) => {
     }, initialETV).entries()),
   });
 });
+
+/**
+ * Get a date string in local time
+ * @param {Date} d A date
+ * @returns {string} A date string like YYYY-MM-DD
+ */
+function getDateString(d) {
+  const year = d.getFullYear();
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const day = d.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 /**
  * @typedef {object} MonthlyBreakdown
