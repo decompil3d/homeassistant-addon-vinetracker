@@ -58,6 +58,9 @@
             <a class="nav-link" href="{{ ingress }}/">Home</a>
           </li>
           <li class="nav-item">
+            <a class="nav-link" href="{{ ingress }}/carousel">Carousel</a>
+          </li>
+          <li class="nav-item">
             <a class="nav-link" href="{{ ingress }}/overview">Overview</a>
           </li>
           <li class="nav-item">
@@ -65,136 +68,137 @@
           </li>
         </ul>
       </div>
-    </nav>
-    <main id="main">
-      <div class="container-fluid mb-3 toolbar">
-        <div class="row">
-          <div class="col-auto me-auto">
-            <select id="year" class="form-select" style="max-width: 200px; margin-bottom: 10px;"></select>
-          </div>
-          <div class="col-auto">
-            <button class="btn btn-primary" onclick="printFrame()">Print</button>
-          </div>
+    </div>
+  </nav>
+  <main id="main">
+    <div class="container-fluid mb-3 toolbar">
+      <div class="row">
+        <div class="col-auto me-auto">
+          <select id="year" class="form-select" style="max-width: 200px; margin-bottom: 10px;"></select>
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-primary" onclick="printFrame()">Print</button>
         </div>
       </div>
-      <h1 class="title">Vine order report for {{year}}</h1>
-      <div id="report-content" class="container-fluid">
-        {{#if orders.cancelPrior}}
-        <h2 class="h4">Cancellations from prior year's orders</h2>
-        <table class="table mb-5">
-          <thead>
-            <tr>
-              <th scope="col">Date/Order number</th>
-              <th scope="col">Cancellation date</th>
-              <th scope="col">Product</th>
-              <th scope="col">ETV impact</th>
-            </tr>
-          </thead>
-          <tbody>
-            {{#each orders.cancelPrior}}
-            <tr>
-              <td>
-                <p class="fw-semibold text-secondary mb-0">{{date orderedAt}}</p>
-                <p class="text-nowrap">{{number}}</p>
-              </td>
-              <td>
-                <p class="fw-semibold text-secondary">{{date cancelledAt}}</p>
-              </td>
-              <td>
-                <p class="fw-semibold text-secondary mb-0">{{asin}}</p>
-                <p>{{product}}</p>
-              </td>
-              <td>-{{currency etv}}</td>
-            </tr>
-            {{/each}}
-          </tbody>
-        </table>
-        {{/if}}
-        <h2 class="h4">Damaged/defective/disposed orders</h2>
-        <p>Adjustment: -{{ badTotalAdjustment }}</p>
-        <table class="table mb-5">
-          <thead>
-            <tr>
-              <th scope="col">Date/Order number</th>
-              <th scope="col">Product</th>
-              <th scope="col">Original ETV</th>
-              <th scope="col">Adjusted ETV</th>
-              <th scope="col">Reason</th>
-            </tr>
-          </thead>
-          <tbody>
-            {{#each orders.bad}}
-            <tr>
-              <td>
-                <p class="fw-semibold text-secondary mb-0">{{date orderedAt}}</p>
-                <p class="text-nowrap">{{number}}</p>
-              </td>
-              <td>
-                <p class="fw-semibold text-secondary mb-0">{{asin}}</p>
-                <p>{{product}}</p>
-              </td>
-              <td>{{currency etv}}</td>
-              <td>{{multiply etv etvFactor}}</td>
-              <td>
-                {{etvReason}}
-              </td>
-            </tr>
-            {{/each}}
-          </tbody>
-        </table>
-        <h2 class="h4">Other orders</h2>
-        <p>Adjustment: -{{ otherTotalAdjustment }}</p>
-        <table class="table">
-          <thead>
-            <tr>
-              <th scope="col">Date/Order number</th>
-              <th scope="col">Product</th>
-              <th scope="col">Original ETV</th>
-              <th scope="col">Adjusted ETV</th>
-              <th scope="col">Reason</th>
-            </tr>
-          </thead>
-          <tbody>
-            {{#each orders.adjusted}}
-            <tr>
-              <td>
-                <p class="fw-semibold text-secondary mb-0">{{date orderedAt}}</p>
-                <p class="text-nowrap">{{number}}</p>
-              </td>
-              <td>
-                <p class="fw-semibold text-secondary mb-0">{{asin}}</p>
-                <p>{{product}}</p>
-              </td>
-              <td>{{currency etv}}</td>
-              <td>{{multiply etv etvFactor}}</td>
-              <td>
-                {{etvReason}}
-              </td>
-            </tr>
-            {{/each}}
-          </tbody>
-        </table>
-      </div>
-      <script>
-        const yearSelect = document.getElementById('year');
-        let year = 2025;
-        for (let cur = new Date().getFullYear(); year <= cur; year++) {
-          const option = document.createElement('option');
-          option.value = year;
-          option.textContent = year;
-          option.selected = year === {{ year }};
-          yearSelect.appendChild(option);
+    </div>
+    <h1 class="title">Vine order report for {{year}}</h1>
+    <div id="report-content" class="container-fluid">
+      {{#if orders.cancelPrior}}
+      <h2 class="h4">Cancellations from prior year's orders</h2>
+      <table class="table mb-5">
+        <thead>
+          <tr>
+            <th scope="col">Date/Order number</th>
+            <th scope="col">Cancellation date</th>
+            <th scope="col">Product</th>
+            <th scope="col">ETV impact</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each orders.cancelPrior}}
+          <tr>
+            <td>
+              <p class="fw-semibold text-secondary mb-0">{{date orderedAt}}</p>
+              <p class="text-nowrap">{{number}}</p>
+            </td>
+            <td>
+              <p class="fw-semibold text-secondary">{{date cancelledAt}}</p>
+            </td>
+            <td>
+              <p class="fw-semibold text-secondary mb-0">{{asin}}</p>
+              <p>{{product}}</p>
+            </td>
+            <td>-{{currency etv}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+      {{/if}}
+      <h2 class="h4">Damaged/defective/disposed orders</h2>
+      <p>Adjustment: -{{ badTotalAdjustment }}</p>
+      <table class="table mb-5">
+        <thead>
+          <tr>
+            <th scope="col">Date/Order number</th>
+            <th scope="col">Product</th>
+            <th scope="col">Original ETV</th>
+            <th scope="col">Adjusted ETV</th>
+            <th scope="col">Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each orders.bad}}
+          <tr>
+            <td>
+              <p class="fw-semibold text-secondary mb-0">{{date orderedAt}}</p>
+              <p class="text-nowrap">{{number}}</p>
+            </td>
+            <td>
+              <p class="fw-semibold text-secondary mb-0">{{asin}}</p>
+              <p>{{product}}</p>
+            </td>
+            <td>{{currency etv}}</td>
+            <td>{{multiply etv etvFactor}}</td>
+            <td>
+              {{etvReason}}
+            </td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+      <h2 class="h4">Other orders</h2>
+      <p>Adjustment: -{{ otherTotalAdjustment }}</p>
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Date/Order number</th>
+            <th scope="col">Product</th>
+            <th scope="col">Original ETV</th>
+            <th scope="col">Adjusted ETV</th>
+            <th scope="col">Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each orders.adjusted}}
+          <tr>
+            <td>
+              <p class="fw-semibold text-secondary mb-0">{{date orderedAt}}</p>
+              <p class="text-nowrap">{{number}}</p>
+            </td>
+            <td>
+              <p class="fw-semibold text-secondary mb-0">{{asin}}</p>
+              <p>{{product}}</p>
+            </td>
+            <td>{{currency etv}}</td>
+            <td>{{multiply etv etvFactor}}</td>
+            <td>
+              {{etvReason}}
+            </td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+    <script>
+      const yearSelect = document.getElementById('year');
+      let year = 2025;
+      for (let cur = new Date().getFullYear(); year <= cur; year++) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        option.selected = year === {{ year }};
+        yearSelect.appendChild(option);
+      }
+      yearSelect.addEventListener('change', () => {
+        const selectedYear = parseInt(yearSelect.value);
+        if (selectedYear !== {{ year }}) {
+          document.location.href = `{{ ingress }}/tax-report/${selectedYear}`;
         }
-        yearSelect.addEventListener('change', () => {
-          const selectedYear = parseInt(yearSelect.value);
-          if (selectedYear !== {{ year }}) {
-            document.location.href = `{{ ingress }}/tax-report/${selectedYear}`;
-          }
-        });
-        function printFrame() {
-          document.defaultView.print();
-        }
-      </script>
-    </main>
-  </body>
+      });
+      function printFrame() {
+        document.defaultView.print();
+      }
+    </script>
+  </main>
+</body>
 </html>

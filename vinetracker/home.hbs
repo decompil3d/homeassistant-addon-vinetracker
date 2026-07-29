@@ -67,6 +67,9 @@
             <a class="nav-link active" aria-current="page" href="{{ ingress }}/">Home</a>
           </li>
           <li class="nav-item">
+            <a class="nav-link" href="{{ ingress }}/carousel">Carousel</a>
+          </li>
+          <li class="nav-item">
             <a class="nav-link" href="{{ ingress }}/overview">Overview</a>
           </li>
           <li class="nav-item">
@@ -75,265 +78,266 @@
         </ul>
         <button class="btn btn-light" type="button" data-bs-toggle="modal" data-bs-target="#uploadModal">Upload Orders</button>
       </div>
-    </nav>
-    <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h1 class="modal-title fs-5" id="uploadModalLabel">Upload Orders</h1>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <form action="{{ ingress }}/upload" class="dropzone" id="orderUploadDropzone"></form>
-            <script>
-              Dropzone.options.orderUploadDropzone = {
-                acceptedFiles: '.xlsx',
-                init: function() {
-                  this.on('success', function(file, response) {
-                    console.log(`Upload complete: ${response.inserted} orders inserted, ${response.updated} orders updated, ${response.failed} lines failed.`);
-                    bootstrap.Modal.getInstance(document.getElementById('uploadModal')).hide();
-                    grid?.forceRender();
-                  });
-                }
-              };
-            </script>
-          </div>
+    </div>
+  </nav>
+  <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="uploadModalLabel">Upload Orders</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form action="{{ ingress }}/upload" class="dropzone" id="orderUploadDropzone"></form>
+          <script>
+            Dropzone.options.orderUploadDropzone = {
+              acceptedFiles: '.xlsx',
+              init: function() {
+                this.on('success', function(file, response) {
+                  console.log(`Upload complete: ${response.inserted} orders inserted, ${response.updated} orders updated, ${response.failed} lines failed.`);
+                  bootstrap.Modal.getInstance(document.getElementById('uploadModal')).hide();
+                  grid?.forceRender();
+                });
+              }
+            };
+          </script>
         </div>
       </div>
     </div>
-    <main id="main"></main>
-    <script type="text/javascript">
-      let grid = null;
-      function refreshGrid() {
-        const paginationSummaryElm = document.querySelector('.gridjs-summary');
-        if (!paginationSummaryElm) throw new Error('no pagination summary found');
-        const paginationSummary = paginationSummaryElm.getAttribute('title');
-        const currentPageStr = paginationSummary.substring(5, paginationSummary.indexOf(' ', 5));
-        const currentPage = parseInt(currentPageStr, 10);
-        if (Number.isNaN(currentPage)) throw new Error('invalid page found: ' + currentPageStr);
+  </div>
+  <main id="main"></main>
+  <script type="text/javascript">
+    let grid = null;
+    function refreshGrid() {
+      const paginationSummaryElm = document.querySelector('.gridjs-summary');
+      if (!paginationSummaryElm) throw new Error('no pagination summary found');
+      const paginationSummary = paginationSummaryElm.getAttribute('title');
+      const currentPageStr = paginationSummary.substring(5, paginationSummary.indexOf(' ', 5));
+      const currentPage = parseInt(currentPageStr, 10);
+      if (Number.isNaN(currentPage)) throw new Error('invalid page found: ' + currentPageStr);
 
-        grid?.updateConfig({
-          pagination: {
-            resetPageOnUpdate: false,
-            page: currentPage - 1
-          }
-        });
-
-        grid?.forceRender();
-      }
-      function updateETVFactor(orderNumber, factor, originalEtv) {
-        const customInput = document.getElementById(`custom-${orderNumber}`);
-        if (factor === 'custom') {
-          if (!customInput) return;
-          customInput.value = originalEtv.toFixed(2);
-          customInput.classList.remove('d-none');
-          customInput.classList.add('d-block');
-          return;
-        } else {
-          customInput.classList.remove('d-block');
-          customInput.classList.add('d-none');
-        }
-
-        fetch(`{{ ingress }}/orders/${orderNumber}/etv`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ etvFactor: factor === null ? null : parseFloat(factor) }),
-        }).then(() => {
-          refreshGrid();
-        });
-      }
-
-      function updateETVReason(orderNumber, reason) {
-        fetch(`{{ ingress }}/orders/${orderNumber}/etv-reason`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ reason }),
-        }).then(() => {
-          refreshGrid();
-        });
-      }
-
-      function updateCustomETVReal(orderNumber, strCustomValue, originalEtv) {
-        if (!strCustomValue) return;
-        const customValue = parseFloat(strCustomValue);
-        if (Number.isNaN(customValue)) return;
-        const etvFactor = customValue / originalEtv;
-        fetch(`{{ ingress }}/orders/${orderNumber}/etv`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ etvFactor })
-        }).then(() => {
-          refreshGrid();
-        })
-      }
-      const updateCustomETV = debounce(updateCustomETVReal, 200);
-
-      const urlParams = new URLSearchParams(window.location.search);
-      let selectedFilter = urlParams.get('filter') || 'all';
-      const initialSearch = urlParams.get('s');
-
-      grid = new gridjs.Grid({
-        fixedHeader: true,
+      grid?.updateConfig({
         pagination: {
           resetPageOnUpdate: false,
-          server: {
-            url: (prev, page, limit) => `${prev}limit=${limit}&offset=${page * limit}&`
-          }
-        },
-        search: {
-          selector: (cell, rowIndex, cellIndex) => cellIndex === 5 ? cell === null ? 'not-adjusted' : cell : cell,
-          keyword: initialSearch ?? undefined,
-          server: {
-            url: (prev, keyword) => `${prev}s=${keyword}&`
-          }
-        },
-        columns: [
-          {
-            name: 'Number',
-            formatter: (cell, row) => gridjs.html(`${row.cells[8].data ? '<span class="cancelled">Cancelled</span><br />' : ''}<a href="https://www.amazon.com/gp/your-account/order-details?orderID=${cell}" target="_blank" rel="noopener noreferrer" class="fs-7">${cell}</a>`),
-            sort: false,
-          },
-          {
-            name: 'ASIN',
-            formatter: (cell) => gridjs.html(`<a href="https://www.amazon.com/dp/${cell}" target="_blank" rel="noopener noreferrer" class="fs-7">${cell}</a>`),
-            sort: false,
-          },
-          {
-            name: 'Product',
-            formatter: (cell, row) => gridjs.html(`<a href="https://www.amazon.com/dp/${row.cells[1].data}" target="_blank" rel="noopener noreferrer">${cell}</a>`),
-            sort: false,
-          },
-          {
-            name: 'Order date',
-            formatter: (cell) => gridjs.html(`<time datetime="${cell}">${new Date(cell).toLocaleDateString()}</time>`),
-            sort: true,
-          },
-          {
-            name: 'ETV',
-            formatter: (cell) => gridjs.html(`$${cell.toFixed(2)}`),
-            sort: true,
-          },
-          {
-            name: 'ETV Factor',
-            formatter: (cell, row) => {
-              // Cancelled
-              if (row.cells[8].data) return '';
-              
-              // Not cancelled
-              const isCustom = (cell !== null && cell !== 0 && cell !== 0.2 && cell !== 0.5 && cell !== 1);
-              return row.cells[4].data === 0 ? '' : gridjs.html(`<select onchange="updateETVFactor('${row.cells[0].data}', this.value, ${row.cells[4].data})" class="form-select">
-                <option value="" ${cell === null ? 'selected' : ''}></option>
-                <option value="0" ${cell === 0 ? 'selected' : ''}>0%</option>
-                <option value="0.2" ${cell === 0.2 ? 'selected' : ''}>20%</option>
-                <option value="0.5" ${cell === 0.5 ? 'selected' : ''}>50%</option>
-                <option value="1" ${cell === 1 ? 'selected' : ''}>100%</option>
-                <option value="custom" ${isCustom ? 'selected' : ''}>Custom</option>
-              </select>
-              <input type="number" class="form-control ${isCustom ? 'd-block' : 'd-none'}" id="custom-${row.cells[0].data}" onchange="updateCustomETV('${row.cells[0].data}', this.value, ${row.cells[4].data})" min="0" step="0.01" value="${isCustom ? (row.cells[4].data * cell).toFixed(2) : row.cells[4].data.toFixed(2)}" />
-              ${cell !== null && cell !== 0.2 && cell !== 1 ? `
-                <select onchange="updateETVReason('${row.cells[0].data}', this.value)" class="form-select d-block">
-                  <option value="" ${row.cells[7].data === null ? 'selected' : ''}></option>
-                  <optgroup label="Reasons for low percent">
-                    {{#each lowReasons}}
-                    <option value="{{this}}" ${row.cells[7].data === '{{this}}' ? 'selected' : ''}>{{this}}</option>
-                    {{/each}}
-                  </optgroup>
-                  <optgroup label="Reasons for high percent">
-                    {{#each highReasons}}
-                    <option value="{{this}}" ${row.cells[7].data === '{{this}}' ? 'selected' : ''}>{{this}}</option>
-                    {{/each}}
-                  </optgroup>
-                  <option value="Adjusted fair market value" ${row.cells[7].data === 'Adjusted fair market value' ? 'selected' : ''}>Adjusted fair market value</option>
-                  <option value="Other" ${row.cells[7].data === 'Other' ? 'selected' : ''}>Other</option>
-                </select>` : ''}`);
-            },
-            sort: true,
-          },
-          {
-            name: 'Adjusted ETV',
-            formatter: (cell, row) => row.cells[8].data ? gridjs.html('$0.00') : gridjs.html(`$${cell.toFixed(2)}`),
-          },
-          {
-            name: 'ETV Reason',
-            hidden: true,
-          },
-          {
-            name: 'Cancelled',
-            hidden: true,
-          }
-        ],
-        server: {
-          url: `{{ ingress }}/orders?filter=${selectedFilter}&`,
-          total: data => data.total,
-          then: data => {
-            return data.orders.map(order => [
-              order.number,
-              order.asin,
-              order.product,
-              order.orderedAt,
-              order.etv,
-              order.etvFactor,
-              order.etv * (order.etvFactor ?? 1),
-              order.etvReason || null,
-              order.cancelledAt
-            ]);
-          }
-        },
-        sort: {
-          server: {
-            url: (prev, columns) => {
-              if (!columns.length) return prev;
-
-              const col = columns[0];
-              const dir = col.direction === 1 ? 'asc' : 'desc';
-              const colName = [null, null, null, 'orderedAt', 'etv', 'etvFactor', 'adjustedEtv', null, null][col.index];
-
-              return `${prev}sort=${colName ?? 'orderedAt'}&dir=${dir}&`;
-            }
-          }
-        },
+          page: currentPage - 1
+        }
       });
 
-      function filterPlugin() {
-        return gridjs.h('div', {
-          className: 'filters'
-        }, [
-          gridjs.h('div', { className: 'btn-group', role: 'group' }, [
-            gridjs.h('button', {
-              className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'all' ? ' active' : ''),
-              type: 'button',
-              onclick: () => {
-                location.href = '{{ ingress }}/?filter=all';
-              }
-            }, 'All'),
-            gridjs.h('button', {
-              className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'adjusted' ? ' active' : ''),
-              onclick: () => {
-                location.href = '{{ ingress }}/?filter=adjusted';
-              }
-            }, 'Not Adjusted'),
-            gridjs.h('button', {
-              className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'cancelled' ? ' active' : ''),
-              onclick: () => {
-                location.href = '{{ ingress }}/?filter=cancelled';
-              }
-            }, 'Cancelled'),
-          ])
-        ]);
+      grid?.forceRender();
+    }
+    function updateETVFactor(orderNumber, factor, originalEtv) {
+      const customInput = document.getElementById(`custom-${orderNumber}`);
+      if (factor === 'custom') {
+        if (!customInput) return;
+        customInput.value = originalEtv.toFixed(2);
+        customInput.classList.remove('d-none');
+        customInput.classList.add('d-block');
+        return;
+      } else {
+        customInput.classList.remove('d-block');
+        customInput.classList.add('d-none');
       }
-      grid.plugin.add({
-        id: 'filterPlugin',
-        component: filterPlugin,
-        position: 0 // header
-      });
 
-      grid.render(document.getElementById("main"));
+      fetch(`{{ ingress }}/orders/${orderNumber}/etv`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ etvFactor: factor === null ? null : parseFloat(factor) }),
+      }).then(() => {
+        refreshGrid();
+      });
+    }
+
+    function updateETVReason(orderNumber, reason) {
+      fetch(`{{ ingress }}/orders/${orderNumber}/etv-reason`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason }),
+      }).then(() => {
+        refreshGrid();
+      });
+    }
+
+    function updateCustomETVReal(orderNumber, strCustomValue, originalEtv) {
+      if (!strCustomValue) return;
+      const customValue = parseFloat(strCustomValue);
+      if (Number.isNaN(customValue)) return;
+      const etvFactor = customValue / originalEtv;
+      fetch(`{{ ingress }}/orders/${orderNumber}/etv`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ etvFactor })
+      }).then(() => {
+        refreshGrid();
+      })
+    }
+    const updateCustomETV = debounce(updateCustomETVReal, 200);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    let selectedFilter = urlParams.get('filter') || 'all';
+    const initialSearch = urlParams.get('s');
+
+    grid = new gridjs.Grid({
+      fixedHeader: true,
+      pagination: {
+        resetPageOnUpdate: false,
+        server: {
+          url: (prev, page, limit) => `${prev}limit=${limit}&offset=${page * limit}&`
+        }
+      },
+      search: {
+        selector: (cell, rowIndex, cellIndex) => cellIndex === 5 ? cell === null ? 'not-adjusted' : cell : cell,
+        keyword: initialSearch ?? undefined,
+        server: {
+          url: (prev, keyword) => `${prev}s=${keyword}&`
+        }
+      },
+      columns: [
+        {
+          name: 'Number',
+          formatter: (cell, row) => gridjs.html(`${row.cells[8].data ? '<span class="cancelled">Cancelled</span><br />' : ''}<a href="https://www.amazon.com/gp/your-account/order-details?orderID=${cell}" target="_blank" rel="noopener noreferrer" class="fs-7">${cell}</a>`),
+          sort: false,
+        },
+        {
+          name: 'ASIN',
+          formatter: (cell) => gridjs.html(`<a href="https://www.amazon.com/dp/${cell}" target="_blank" rel="noopener noreferrer" class="fs-7">${cell}</a>`),
+          sort: false,
+        },
+        {
+          name: 'Product',
+          formatter: (cell, row) => gridjs.html(`<a href="https://www.amazon.com/dp/${row.cells[1].data}" target="_blank" rel="noopener noreferrer">${cell}</a>`),
+          sort: false,
+        },
+        {
+          name: 'Order date',
+          formatter: (cell) => gridjs.html(`<time datetime="${cell}">${new Date(cell).toLocaleDateString()}</time>`),
+          sort: true,
+        },
+        {
+          name: 'ETV',
+          formatter: (cell) => gridjs.html(`$${cell.toFixed(2)}`),
+          sort: true,
+        },
+        {
+          name: 'ETV Factor',
+          formatter: (cell, row) => {
+            // Cancelled
+            if (row.cells[8].data) return '';
+            
+            // Not cancelled
+            const isCustom = (cell !== null && cell !== 0 && cell !== 0.2 && cell !== 0.5 && cell !== 1);
+            return row.cells[4].data === 0 ? '' : gridjs.html(`<select onchange="updateETVFactor('${row.cells[0].data}', this.value, ${row.cells[4].data})" class="form-select">
+              <option value="" ${cell === null ? 'selected' : ''}></option>
+              <option value="0" ${cell === 0 ? 'selected' : ''}>0%</option>
+              <option value="0.2" ${cell === 0.2 ? 'selected' : ''}>20%</option>
+              <option value="0.5" ${cell === 0.5 ? 'selected' : ''}>50%</option>
+              <option value="1" ${cell === 1 ? 'selected' : ''}>100%</option>
+              <option value="custom" ${isCustom ? 'selected' : ''}>Custom</option>
+            </select>
+            <input type="number" class="form-control ${isCustom ? 'd-block' : 'd-none'}" id="custom-${row.cells[0].data}" onchange="updateCustomETV('${row.cells[0].data}', this.value, ${row.cells[4].data})" min="0" step="0.01" value="${isCustom ? (row.cells[4].data * cell).toFixed(2) : row.cells[4].data.toFixed(2)}" />
+            ${cell !== null && cell !== 0.2 && cell !== 1 ? `
+              <select onchange="updateETVReason('${row.cells[0].data}', this.value)" class="form-select d-block">
+                <option value="" ${row.cells[7].data === null ? 'selected' : ''}></option>
+                <optgroup label="Reasons for low percent">
+                  {{#each lowReasons}}
+                  <option value="{{this}}" ${row.cells[7].data === '{{this}}' ? 'selected' : ''}>{{this}}</option>
+                  {{/each}}
+                </optgroup>
+                <optgroup label="Reasons for high percent">
+                  {{#each highReasons}}
+                  <option value="{{this}}" ${row.cells[7].data === '{{this}}' ? 'selected' : ''}>{{this}}</option>
+                  {{/each}}
+                </optgroup>
+                <option value="Adjusted fair market value" ${row.cells[7].data === 'Adjusted fair market value' ? 'selected' : ''}>Adjusted fair market value</option>
+                <option value="Other" ${row.cells[7].data === 'Other' ? 'selected' : ''}>Other</option>
+              </select>` : ''}`);
+          },
+          sort: true,
+        },
+        {
+          name: 'Adjusted ETV',
+          formatter: (cell, row) => row.cells[8].data ? gridjs.html('$0.00') : gridjs.html(`$${cell.toFixed(2)}`),
+        },
+        {
+          name: 'ETV Reason',
+          hidden: true,
+        },
+        {
+          name: 'Cancelled',
+          hidden: true,
+        }
+      ],
+      server: {
+        url: `{{ ingress }}/orders?filter=${selectedFilter}&`,
+        total: data => data.total,
+        then: data => {
+          return data.orders.map(order => [
+            order.number,
+            order.asin,
+            order.product,
+            order.orderedAt,
+            order.etv,
+            order.etvFactor,
+            order.etv * (order.etvFactor ?? 1),
+            order.etvReason || null,
+            order.cancelledAt
+          ]);
+        }
+      },
+      sort: {
+        server: {
+          url: (prev, columns) => {
+            if (!columns.length) return prev;
+
+            const col = columns[0];
+            const dir = col.direction === 1 ? 'asc' : 'desc';
+            const colName = [null, null, null, 'orderedAt', 'etv', 'etvFactor', 'adjustedEtv', null, null][col.index];
+
+            return `${prev}sort=${colName ?? 'orderedAt'}&dir=${dir}&`;
+          }
+        }
+      },
+    });
+
+    function filterPlugin() {
+      return gridjs.h('div', {
+        className: 'filters'
+      }, [
+        gridjs.h('div', { className: 'btn-group', role: 'group' }, [
+          gridjs.h('button', {
+            className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'all' ? ' active' : ''),
+            type: 'button',
+            onclick: () => {
+              location.href = '{{ ingress }}/?filter=all';
+            }
+          }, 'All'),
+          gridjs.h('button', {
+            className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'adjusted' ? ' active' : ''),
+            onclick: () => {
+              location.href = '{{ ingress }}/?filter=adjusted';
+            }
+          }, 'Not Adjusted'),
+          gridjs.h('button', {
+            className: 'btn btn-outline-secondary btn-force' + (selectedFilter === 'cancelled' ? ' active' : ''),
+            onclick: () => {
+              location.href = '{{ ingress }}/?filter=cancelled';
+            }
+          }, 'Cancelled'),
+        ])
+      ]);
+    }
+    grid.plugin.add({
+      id: 'filterPlugin',
+      component: filterPlugin,
+      position: 0 // header
+    });
+
+    grid.render(document.getElementById("main"));
   </script>
 </body>
 </html>

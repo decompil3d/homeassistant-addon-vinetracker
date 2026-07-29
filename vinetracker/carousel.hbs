@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vine Tracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.css">
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/gh/kenwheeler/slick@1.8.1/slick/slick-theme.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+  <script>var module = {};</script>
+  <style>
+    .fs-7 {
+      font-size: 0.8rem;
+    }
+    a {
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .custom, .reason {
+      display: none;
+    }
+    .is-custom .custom {
+      display: block;
+    }
+    .has-reason .reason {
+      display: block;
+    }
+  </style>
+</head>
+<body class="container-fluid bg-light" style="padding-top: 70px;">
+  <nav class="navbar fixed-top navbar-expand-lg bg-info">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="{{ ingress }}/">Vine Tracker</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link" href="{{ ingress }}/">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="{{ ingress }}/carousel">Carousel</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ ingress }}/overview">Overview</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ ingress }}/tax-report">Tax Report</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <main id="main">
+    <div id="orders">
+      {{#each orders}}
+        <div id="o-{{number}}">
+          <div class="alert alert-danger d-none" role="alert">
+            <span></span>
+          </div>
+          <a href="https://www.amazon.com/gp/your-account/order-details?orderID={{number}}" class="text-uppercase lh-lg text-secondary fw-semibold" rel="noopener noreferrer">{{number}}</a>
+          <h3 class="h4"><a href="https://www.amazon.com/dp/{{asin}}">{{product}}</a></h3>
+          <dl class="row mt-3">
+            <dt>Order date</dt>
+            <dd>{{date orderedAt}}</dd>
+
+            <dt class="mt-3">Original ETV</dt>
+            <dd>{{currency etv}}</dd>
+
+            <dt class="mt-3">Adjustment</dt>
+            <dd>
+              <select id="o-{{number}}-factor" class="form-select" onchange="onETVFactorChange('{{number}}', this.value)">
+                <option value=""></option>
+                <option value="0">0%</option>
+                <option value="0.2">20%</option>
+                <option value="0.5">50%</option>
+                <option value="1">100%</option>
+                <option value="custom">Custom</option>
+              </select>
+            </dd>
+
+            <dt class="mt-3 custom">Custom ETV</dt>
+            <dd class="custom">
+              <input type="number" value="{{etv}}" min="0" step="0.01" class="form-control" id="o-{{number}}-custom" onchange="onFieldUpdated('{{number}}')" />
+            </dd>
+
+            <dt class="mt-3 reason">Reason</dt>
+            <dd class="reason">
+              <select id="o-{{number}}-reason" class="form-select" onchange="onFieldUpdated('{{number}}')">
+                <option value=""></option>
+                <optgroup label="Reasons for low percent">
+                  {{#each ../lowReasons}}
+                  <option value="{{this}}">{{this}}</option>
+                  {{/each}}
+                </optgroup>
+                <optgroup label="Reasons for high percent">
+                  {{#each ../highReasons}}
+                  <option value="{{this}}">{{this}}</option>
+                  {{/each}}
+                </optgroup>
+                <option value="Adjusted fair market value">Adjusted fair market value</option>
+                <option value="Other">Other</option>
+              </select>
+            </dd>
+          </dl>
+          <div class="row mt-5 gx-3">
+            <div class="col-6"><button class="btn btn-secondary w-100" onclick="skip()">Skip</button></div>
+            <div class="col-6"><button class="btn btn-primary w-100 save-button" disabled onclick="save('{{number}}', {{etv}})">Save</button></div>
+          </div>
+        </div>
+      {{else}}
+        <div class="text-muted">
+          <div class="display-6">All caught up</div>
+          <div class="lead">All your items are processed. Enjoy your day!</div>
+        </div>
+      {{/each}}
+      {{#if orders}}
+      <div id="end">
+        <div class="display-6">Done with this batch</div>
+        <p class="lead">Ready to keep going? Press below to grab the next set of orders</p>
+        <div class="row"><button class="btn btn-primary" onclick="location.reload()">Keep going</button></div>
+      </div>
+      {{/if}}
+    </div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/jquery@1.12.4/dist/jquery.min.js" integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js" integrity="sha256-DHF4zGyjT7GOMPBwpeehwoey18z8uiz98G4PRu2lV0A=" crossorigin="anonymous"></script>
+  <script type="text/javascript">
+    /**
+     * @param {string} number
+     * @param {string} factor
+     */
+    function onETVFactorChange(number, factor) {
+      const card = document.getElementById(`o-${number}`);
+      if (!card) throw new Error('wat? no card for that number');
+      if (factor === 'custom') {
+        card.classList.add('is-custom');
+      } else {
+        card.classList.remove('is-custom');
+      }
+      if (['', '0.2', '1'].includes(factor)) {
+        card.classList.remove('has-reason');
+      } else {
+        card.classList.add('has-reason');
+      }
+      onFieldUpdated(number);
+    }
+
+    function getFieldValues(number) {
+      const card = document.getElementById(`o-${number}`);
+      if (!card) throw new Error('wat? no card for that number');
+
+      /** @type {HTMLSelectElement} */
+      const factorElm = card.querySelector(`#o-${number}-factor`);
+      const factorStr = factorElm.value;
+
+      /** @type {number} */
+      let customEtv;
+      if (factorStr === 'custom') {
+        /** @type {HTMLInputElement} */
+        const customElm = card.querySelector(`#o-${number}-custom`);
+        customEtv = customElm.valueAsNumber;
+        if (Number.isNaN(customEtv)) {
+          customEtv = undefined;
+        }
+      }
+
+      /** @type {HTMLSelectElement} */
+      const reasonElm = card.querySelector(`#o-${number}-reason`);
+      const reason = reasonElm.value;
+
+      return {
+        card,
+        factorStr,
+        customEtv,
+        reason
+      };
+    }
+
+    /**
+     * @param {ReturnType<getFieldValues>} fieldValues
+     */
+    function validate(fieldValues) {
+      const { card, factorStr, customEtv, reason } = fieldValues;
+      let valid = true;
+
+      if (!factorStr) valid = false;
+      if (factorStr === 'custom' && customEtv === undefined) valid = false;
+      if (!['0.2', '1'].includes(factorStr) && !reason) valid = false;
+
+      return valid;
+    }
+
+    /**
+     * @param {string} number
+     */
+    function onFieldUpdated(number) {
+      const fieldValues = getFieldValues(number);
+      const valid = validate(fieldValues);
+
+      /** @type {HTMLButtonElement} */
+      const saveButton = fieldValues.card.querySelector('.save-button');
+      saveButton.disabled = !valid;
+    }
+
+    /**
+     * @param {string} number
+     * @param {number} originalEtv
+     */
+    async function save(number, originalEtv) {
+      const fieldValues = getFieldValues(number);
+      const { card, factorStr, customEtv, reason } = fieldValues;
+
+      // Validate
+      if (!validate(fieldValues)) {
+        const errorBannerTextElm = card.querySelector('.error-banner > span');
+        errorBannerTextElm.innerHTML = 'Error saving. Fields invalid.';
+        errorBannerTextElm.classList.remove('d-none');
+        return;
+      }
+
+      /** @type {number} */
+      let factor = 1;
+      if (factorStr === 'custom') {
+        factor = customEtv / originalEtv;
+      } else {
+        const parsedFactor = parseFloat(factorStr);
+        if (!Number.isNaN(parsedFactor)) {
+          factor = parsedFactor;
+        }
+      }
+
+      const results = await Promise.all([
+        fetch(`{{ ingress }}/orders/${number}/etv`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ etvFactor: factor })
+        }),
+        fetch(`{{ ingress }}/orders/${number}/etv-reason`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ reason }),
+        })
+      ]);
+
+      const [etvRes, reasonRes] = results;
+      if (!etvRes.ok || !reasonRes.ok) {
+        const errorBannerTextElm = card.querySelector('.error-banner > span');
+        errorBannerTextElm.innerHTML = 'Error saving. Please try again.';
+        errorBannerTextElm.classList.remove('d-none');
+      }
+
+      $('#orders').slick('slickRemove', 0);
+    }
+
+    function skip() {
+      $('#orders').slick('slickRemove', 0);
+    }
+
+    {{#if orders}}
+    $(document).ready(function() {
+      $('#orders').slick({
+        arrows: false,
+        mobileFirst: true,
+        swipe: false,
+        touchMove: false,
+        infinite: false,
+      });
+    });
+    {{/if}}
+  </script>
+</body>
+</html>

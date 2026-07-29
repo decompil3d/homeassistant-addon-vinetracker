@@ -77,12 +77,25 @@ app.use((req, res, next) => {
     next();
   }
 });
+
+const lowReasons = [
+  'Damaged/defective',
+  'Disposed of',
+  'Consumed for review',
+  'Did not receive'
+];
+const highReasons = [
+  'Brand name'
+];
+
 /** @type {ReturnType<Handlebars.compile>} */
 let homeTemplate;
 /** @type {ReturnType<Handlebars.compile>} */
 let overviewTemplate;
 /** @type {ReturnType<Handlebars.compile>} */
 let taxReportTemplate;
+/** @type {ReturnType<Handlebars.compile>} */
+let carouselTemplate;
 app.get('/', (req, res) => {
   if (!homeTemplate) {
     const homeHtml = fs.readFileSync(path.join(__dirname, 'home.hbs'), 'utf-8');
@@ -90,15 +103,8 @@ app.get('/', (req, res) => {
   }
   res.send(homeTemplate({
     ingress: req.get('x-ingress-path') || '',
-    lowReasons: [
-      'Damaged/defective',
-      'Disposed of',
-      'Consumed for review',
-      'Did not receive'
-    ],
-    highReasons: [
-      'Brand name'
-    ]
+    lowReasons,
+    highReasons
   }));
 });
 app.get('/overview', (req, res) => {
@@ -150,6 +156,16 @@ app.get('/tax-report{/:year}', (req, res) => {
   const otherTotalAdjustment = currencyFormatter.format(otherTotalAdjustmentRaw ?? 0);
 
   res.send(taxReportTemplate({ ingress: req.get('x-ingress-path') || '', orders, year, badTotalAdjustment, otherTotalAdjustment }));
+});
+app.get('/carousel', (req, res) => {
+  if (!carouselTemplate) {
+    const carouselHtml = fs.readFileSync(path.join(__dirname, 'carousel.hbs'), 'utf-8');
+    carouselTemplate = Handlebars.compile(carouselHtml);
+  }
+
+  const orders = getOrders({ nonAdjustedOnly: true, limit: 20, dir: 'asc' });
+
+  res.send(carouselTemplate({ ingress: req.get('x-ingress-path') || '', orders, lowReasons, highReasons }));
 });
 app.get('/orders', async (req, res) => {
   try {

@@ -39,6 +39,9 @@
             <a class="nav-link" href="{{ ingress }}/">Home</a>
           </li>
           <li class="nav-item">
+            <a class="nav-link" href="{{ ingress }}/carousel">Carousel</a>
+          </li>
+          <li class="nav-item">
             <a class="nav-link active" aria-current="page" href="{{ ingress }}/overview">Overview</a>
           </li>
           <li class="nav-item">
@@ -46,152 +49,153 @@
           </li>
         </ul>
       </div>
-    </nav>
-    <main id="main">
-      <div class="container-fluid mb-3">
-        <div class="hstack gap-3 align-middle mb-5">
-          <select id="year" class="form-select" style="max-width: 200px">
-          </select>
-          <a href="#" onclick="downloadJSON()">Download</a>
-        </div>
+    </div>
+  </nav>
+  <main id="main">
+    <div class="container-fluid mb-3">
+      <div class="hstack gap-3 align-middle mb-5">
+        <select id="year" class="form-select" style="max-width: 200px">
+        </select>
+        <a href="#" onclick="downloadJSON()">Download</a>
       </div>
-      <div id="report-content" class="container-fluid"></div>
-      <script>
-        const yearSelect = document.getElementById('year');
-        let year = 2025;
-        for (let cur = new Date().getFullYear(); year <= cur; year++) {
-          const option = document.createElement('option');
-          option.value = year;
-          option.textContent = year;
-          option.selected = year === cur;
-          yearSelect.appendChild(option);
-        }
-        yearSelect.addEventListener('change', () => {
-          window.selectedYear = year = parseInt(yearSelect.value);
-          loadReport(year);
+    </div>
+    <div id="report-content" class="container-fluid"></div>
+    <script>
+      const yearSelect = document.getElementById('year');
+      let year = 2025;
+      for (let cur = new Date().getFullYear(); year <= cur; year++) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        option.selected = year === cur;
+        yearSelect.appendChild(option);
+      }
+      yearSelect.addEventListener('change', () => {
+        window.selectedYear = year = parseInt(yearSelect.value);
+        loadReport(year);
+      });
+      window.selectedYear = year - 1;
+      loadReport(year - 1);
+
+      const months = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+
+      async function loadReport(year) {
+        const response = await fetch(`{{ ingress }}/report-data/${year}`);
+        const report = await response.json();
+        const currencyFormatter = new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
         });
-        window.selectedYear = year - 1;
-        loadReport(year - 1);
-
-        const months = [
-          'January', 'February', 'March', 'April', 'May', 'June',
-          'July', 'August', 'September', 'October', 'November', 'December'
-        ];
-
-        async function loadReport(year) {
-          const response = await fetch(`{{ ingress }}/report-data/${year}`);
-          const report = await response.json();
-          const currencyFormatter = new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-          });
-          document.getElementById('report-content').innerHTML = `
-            <h1 class="fs-3 mb-3">Report for ${year}</h1>
-            <div class="mb-5">
-              <div class="row g-0 mx-0">
-                <div class="col-12 col-md-4 mb-2 mb-md-0 pe-md-2">
-                  <div class="card">
-                    <div class="card-body">
-                      <h5 class="card-title">Total ETV</h5>
-                      <p class="card-text fs-1">${currencyFormatter.format(report.totalEtv)}</p>
-                    </div>
+        document.getElementById('report-content').innerHTML = `
+          <h1 class="fs-3 mb-3">Report for ${year}</h1>
+          <div class="mb-5">
+            <div class="row g-0 mx-0">
+              <div class="col-12 col-md-4 mb-2 mb-md-0 pe-md-2">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Total ETV</h5>
+                    <p class="card-text fs-1">${currencyFormatter.format(report.totalEtv)}</p>
                   </div>
                 </div>
-                <div class="col-12 col-md-4 mb-2 mb-md-0">
-                  <div class="card">
-                    <div class="card-body">
-                      <h5 class="card-title">Total Adjusted ETV</h5>
-                      <p class="card-text fs-1">${currencyFormatter.format(report.totalAdjustedEtv)}</p>
-                    </div>
+              </div>
+              <div class="col-12 col-md-4 mb-2 mb-md-0">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Total Adjusted ETV</h5>
+                    <p class="card-text fs-1">${currencyFormatter.format(report.totalAdjustedEtv)}</p>
                   </div>
                 </div>
-                <div class="col-12 col-md-4 ps-md-2">
-                  <div class="card">
-                    <div class="card-body">
-                      <h5 class="card-title">Orders</h5>
-                      <p class="card-text fs-1">${report.orderCount}</p>
-                    </div>
+              </div>
+              <div class="col-12 col-md-4 ps-md-2">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Orders</h5>
+                    <p class="card-text fs-1">${report.orderCount}</p>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="mb-5 row">
-              <canvas id="chart"></canvas>
-            </div>
-            <table class="table table-striped">
-              <thead>
+          </div>
+          <div class="mb-5 row">
+            <canvas id="chart"></canvas>
+          </div>
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Total ETV</th>
+                <th>Total Adjusted ETV</th>
+                <th>Orders</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${report.monthly.map(month => `
                 <tr>
-                  <th>Month</th>
-                  <th>Total ETV</th>
-                  <th>Total Adjusted ETV</th>
-                  <th>Orders</th>
+                  <td>${months[month.month - 1]}</td>
+                  <td>${currencyFormatter.format(month.totalEtv)}</td>
+                  <td>${currencyFormatter.format(month.totalAdjustedEtv)}</td>
+                  <td>${month.orderCount}</td>
                 </tr>
-              </thead>
-              <tbody>
-                ${report.monthly.map(month => `
-                  <tr>
-                    <td>${months[month.month - 1]}</td>
-                    <td>${currencyFormatter.format(month.totalEtv)}</td>
-                    <td>${currencyFormatter.format(month.totalAdjustedEtv)}</td>
-                    <td>${month.orderCount}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          `;
-          const orderCountByDate = new Map();
-          const orderETVByDate = new Map();
-          const orderDates = Array.from(Object.keys(report.orderCountByDate));
-          const allDates = [];
-          const startDate = new Date(orderDates[0]);
-          const endDate = new Date(orderDates.at(-1));
-          for (let d = startDate; d.getTime() < endDate.getTime(); d.setDate(d.getDate() + 1)) {
-            const key = d.toISOString().split('T')[0];
-            orderCountByDate.set(key, report.orderCountByDate[key] ?? 0);
-            orderETVByDate.set(key, report.orderETVByDate[key] ?? 0);
-            allDates.push(key);
-          }
-          const chart = new Chart(
-            document.getElementById('chart'),
-            {
-              type: 'line',
-              data: {
-                labels: Array.from(orderCountByDate.keys()),
-                datasets: [{
-                  label: 'Order count by day',
-                  data: Array.from(orderCountByDate.values()),
-                  pointStyle: 'circle',
-                  yAxisID: 'count'
-                }, {
-                  label: 'Order ETV by day',
-                  data: Array.from(orderETVByDate.values()),
-                  pointStyle: 'circle',
-                  yAxisID: 'etv'
-                }]
-              },
-              options: {
-                scales: {
-                  count: {
-                    position: 'left'
-                  },
-                  etv: {
-                    position: 'right',
-                    ticks: {
-                      callback: value => `$${value}`
-                    }
-                  }
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+        const orderCountByDate = new Map();
+        const orderETVByDate = new Map();
+        const orderDates = Array.from(Object.keys(report.orderCountByDate));
+        const allDates = [];
+        const startDate = new Date(orderDates[0]);
+        const endDate = new Date(orderDates.at(-1));
+        for (let d = startDate; d.getTime() < endDate.getTime(); d.setDate(d.getDate() + 1)) {
+          const key = d.toISOString().split('T')[0];
+          orderCountByDate.set(key, report.orderCountByDate[key] ?? 0);
+          orderETVByDate.set(key, report.orderETVByDate[key] ?? 0);
+          allDates.push(key);
+        }
+        const chart = new Chart(
+          document.getElementById('chart'),
+          {
+            type: 'line',
+            data: {
+              labels: Array.from(orderCountByDate.keys()),
+              datasets: [{
+                label: 'Order count by day',
+                data: Array.from(orderCountByDate.values()),
+                pointStyle: 'circle',
+                yAxisID: 'count'
+              }, {
+                label: 'Order ETV by day',
+                data: Array.from(orderETVByDate.values()),
+                pointStyle: 'circle',
+                yAxisID: 'etv'
+              }]
+            },
+            options: {
+              scales: {
+                count: {
+                  position: 'left'
                 },
-                onClick: (evt, elements) => {
-                  if (elements.length > 0) {
-                    const idx = elements[0].index;
-                    const date = allDates[idx];
-                    document.location.href = `{{ingress}}/?s=${date}`;
+                etv: {
+                  position: 'right',
+                  ticks: {
+                    callback: value => `$${value}`
                   }
                 }
+              },
+              onClick: (evt, elements) => {
+                if (elements.length > 0) {
+                  const idx = elements[0].index;
+                  const date = allDates[idx];
+                  document.location.href = `{{ingress}}/?s=${date}`;
+                }
               }
-            });
-        }
-      </script>
-    </main>
-  </body>
+            }
+          });
+      }
+    </script>
+  </main>
+</body>
 </html>
