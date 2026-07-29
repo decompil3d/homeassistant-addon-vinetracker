@@ -163,7 +163,7 @@ app.get('/carousel', (req, res) => {
     carouselTemplate = Handlebars.compile(carouselHtml);
   }
 
-  const orders = getOrders({ nonAdjustedOnly: true, limit: 20, dir: 'asc' });
+  const orders = getOrders({ nonAdjustedOnly: true, cancelled: false, limit: 20, dir: 'asc' });
 
   res.send(carouselTemplate({ ingress: req.get('x-ingress-path') || '', orders, lowReasons, highReasons }));
 });
