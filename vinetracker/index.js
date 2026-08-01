@@ -52,6 +52,16 @@ function renderCurrency(num) {
 Handlebars.registerHelper('currency', renderCurrency);
 
 /**
+ * 
+ * @param {number} num Number to render
+ * @returns {string} rendered as fixed to 2 decimal digits
+ */
+function renderFixed(num) {
+  return num.toFixed(2);
+}
+Handlebars.registerHelper('fixed', renderFixed);
+
+/**
  * Multiply two numbers
  * @param {number} num1 First factor
  * @param {number | null} num2 Second factor, defaults to 1

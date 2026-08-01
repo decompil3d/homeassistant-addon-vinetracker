@@ -90,7 +90,10 @@
 
             <dt class="mt-3 custom">Custom ETV</dt>
             <dd class="custom">
-              <input type="number" value="{{etv}}" min="0" step="0.01" class="form-control" id="o-{{number}}-custom" onchange="onFieldUpdated('{{number}}')" />
+              <div class="input-group">
+                <span class="input-group-text">$</span>
+                <input type="number" value="{{fixed etv}}" min="0" step="0.01" class="form-control" id="o-{{number}}-custom" onchange="onFieldUpdated('{{number}}')" />
+              </div>
             </dd>
 
             <dt class="mt-3 reason">Reason</dt>
